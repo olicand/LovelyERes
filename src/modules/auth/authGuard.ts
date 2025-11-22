@@ -34,7 +34,7 @@ export class AuthGuard {
    * @param message 提示消息
    * @returns 是否已登录
    */
-  public requireAuth(message?: string): boolean {
+  public requireAuth(_message?: string): boolean {
     return true;
   }
 
@@ -42,6 +42,7 @@ export class AuthGuard {
    * 显示需要登录的提示消息
    * @param message 提示消息
    */
+  /*
   private showAuthRequiredMessage(message: string): void {
     // 创建提示元素
     const toast = document.createElement('div');
@@ -146,6 +147,7 @@ export class AuthGuard {
       }, 300);
     }, 3000);
   }
+  */
 
   /**
    * 包装需要认证的函数

@@ -426,6 +426,7 @@ export class DashboardRenderer {
     // this.updateCharts();
   }
 
+  /*
   private updateCharts() {
     if (this.charts.has('cpu-memory')) {
       this.charts.get('cpu-memory').updateSeries([{
@@ -463,6 +464,7 @@ export class DashboardRenderer {
       }
     }
   }
+  */
 
   /**
    * 渲染空仪表盘

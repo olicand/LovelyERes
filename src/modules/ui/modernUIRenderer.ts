@@ -455,7 +455,6 @@ export class ModernUIRenderer {
 
       connections.forEach((conn: any) => {
         const isConnected = conn.isConnected;
-        const statusColor = isConnected ? '#22c55e' : 'var(--text-tertiary)';
         
         menuItems += `
           <div class="dropdown-item" onclick="window.connectServer('${conn.id}'); window.hideConnectionDropdown();" style="

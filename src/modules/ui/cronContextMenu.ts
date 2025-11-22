@@ -11,6 +11,7 @@ export class CronContextMenu {
     user: string
     schedule: string
     command: string
+    source: string
   } | null = null
   private selectedUsername: string = ''
   private accounts: any[] = []
@@ -65,6 +66,28 @@ export class CronContextMenu {
         ">
           <option value="">默认账号</option>
         </select>
+      </div>
+
+      <div class="menu-item menu-parent">
+        <span class="menu-label">
+          ${IconPark.FileCode({ theme: 'outline', size: '16', fill: 'currentColor' })}
+          <span>源文件操作</span>
+        </span>
+        <span class="arrow">▶</span>
+        <div class="submenu">
+          <div class="menu-item" data-action="view-source">
+            <span class="menu-label">
+              ${IconPark.Find({ theme: 'outline', size: '14', fill: 'currentColor' })}
+              <span>查看源文件内容</span>
+            </span>
+          </div>
+          <div class="menu-item" data-action="delete-task-file">
+            <span class="menu-label">
+              ${IconPark.Delete({ theme: 'outline', size: '14', fill: 'currentColor' })}
+              <span>删除任务及文件</span>
+            </span>
+          </div>
+        </div>
       </div>
 
       <div class="menu-item menu-parent">
@@ -541,6 +564,7 @@ export class CronContextMenu {
     user: string
     schedule: string
     command: string
+    source: string
   }) {
     if (!this.contextMenu) return
 
@@ -619,12 +643,45 @@ export class CronContextMenu {
   private async executeAction(action: string) {
     if (!this.currentCron) return
 
-    const { user, schedule, command } = this.currentCron
+    const { user, schedule, command, source } = this.currentCron
     let cmd = ''
     let title = ''
     let actionName = ''
 
     switch (action) {
+      // 源文件操作
+      case 'view-source':
+        if (source && source.startsWith('/')) {
+            cmd = `echo "=== 源文件: ${source} ==="; echo ""; cat "${source}" 2>&1 || echo "无法读取文件"`
+            title = `源文件 - ${source}`
+        } else if (source && source.startsWith('crontab:')) {
+             const u = source.split(':')[1];
+             cmd = `echo "=== 用户Crontab: ${u} ==="; echo ""; crontab -u ${u} -l`
+             title = `用户Crontab - ${u}`
+        } else {
+             this.showModal('提示', '无法确定源文件位置');
+             return;
+        }
+        actionName = '查看源文件'
+        break
+
+      case 'delete-task-file':
+         if (source && source.startsWith('/')) {
+             // Safety check: Don't delete /etc/crontab
+             if (source === '/etc/crontab') {
+                 this.showModal('错误', '不能删除系统主crontab文件 (/etc/crontab)');
+                 return;
+             }
+             
+             cmd = `echo "正在删除文件: ${source}"; rm -f "${source}" && echo "✓ 删除成功" || echo "✗ 删除失败"`
+             title = `删除任务文件 - ${source}`
+             actionName = '删除任务文件'
+         } else {
+             this.showModal('提示', '此任务不是通过独立文件配置的，无法通过删除文件来删除任务。\n\n如果是用户任务，请使用"crontab -e"编辑。');
+             return;
+         }
+         break
+
       // 基本信息
       case 'details':
         cmd = `echo "=== 计划任务详情 ==="; echo ""; echo "用户: ${user}"; echo "时间表: ${schedule}"; echo "命令: ${command}"; echo ""; echo "=== 任务状态 ==="; crontab -u ${user} -l 2>/dev/null | grep -F "${command}" || echo "任务可能已被删除或修改"`

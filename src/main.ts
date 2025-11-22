@@ -852,6 +852,17 @@ async function initializeApp() {
     }
   });
   console.log('✅ SSH终端浮动按钮事件监听器已添加（事件委托方式）');
+
+  // 全局点击事件：清除表格选中状态
+  document.addEventListener('click', (event) => {
+    const target = event.target as HTMLElement;
+    // 如果点击的不是表格行，也不是右键菜单
+    if (!target.closest('tr') && !target.closest('[id$="-context-menu"]')) {
+      document.querySelectorAll('.system-table tr.selected').forEach(row => {
+        row.classList.remove('selected');
+      });
+    }
+  });
 }
 
 /**
@@ -2577,6 +2588,119 @@ function setupGlobalModalFunctions(app: LovelyResApp) {
     }
   };
 
+  // 刷新所有系统信息
+  (window as any).refreshAllSystemInfo = async () => {
+    console.log('🔄 开始刷新所有系统信息...');
+    
+    try {
+      // 显示加载状态
+      const content = document.getElementById('system-info-content');
+      if (content) {
+        content.innerHTML = `
+          <div style="display: flex; align-items: center; justify-content: center; padding: 40px; color: var(--text-secondary);">
+            <div style="text-align: center;">
+              <div style="font-size: 24px; margin-bottom: 10px;">⏳</div>
+              <div>正在刷新系统信息...</div>
+            </div>
+          </div>
+        `;
+      }
+
+      // 获取应用实例
+      const app = (window as any).app;
+      if (!app || !app.systemInfoManager) {
+        console.error('❌ 应用实例或系统信息管理器未找到');
+        if (content) {
+          content.innerHTML = `
+            <div style="display: flex; align-items: center; justify-content: center; padding: 40px; color: var(--text-error);">
+              <div style="text-align: center;">
+                <div style="font-size: 24px; margin-bottom: 10px;">❌</div>
+                <div>应用实例未找到，请刷新页面重试</div>
+              </div>
+            </div>
+          `;
+        }
+        return;
+      }
+
+      // 清除缓存以确保获取最新数据
+      app.systemInfoManager.clearCache();
+      
+      // 重新获取所有系统信息
+      const detailedInfo = await app.systemInfoManager.getDetailedSystemInfo();
+      console.log('✅ 系统信息刷新完成');
+
+      // 更新当前激活的标签页
+      const activeTab = document.querySelector('.tab-btn.active');
+      const currentTabId = activeTab ? activeTab.getAttribute('data-tab') : 'processes';
+      
+      const updateFunctions = {
+        processes: 'updateProcessesTable',
+        network: 'updateNetworkTable',
+        services: 'updateServicesTable',
+        users: 'updateUsersTable',
+        autostart: 'updateAutostartTable',
+        cron: 'updateCronTable',
+        firewall: 'updateFirewallTable'
+      };
+      
+      if (updateFunctions[currentTabId as keyof typeof updateFunctions]) {
+        const updateFunc = (window as any)[updateFunctions[currentTabId as keyof typeof updateFunctions]];
+        if (typeof updateFunc === 'function') {
+          updateFunc(detailedInfo[currentTabId as keyof typeof detailedInfo]);
+        }
+      }
+
+      // 显示成功提示
+      setTimeout(() => {
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          background: var(--bg-success);
+          color: var(--text-primary);
+          padding: 12px 20px;
+          border-radius: var(--border-radius);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+          z-index: 10000;
+          font-size: 14px;
+        `;
+        notification.textContent = '✅ 系统信息已刷新';
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+          if (notification.parentNode) {
+            document.body.removeChild(notification);
+          }
+        }, 3000);
+      }, 100);
+
+    } catch (error) {
+      console.error('❌ 刷新系统信息失败:', error);
+      const content = document.getElementById('system-info-content');
+      if (content) {
+        content.innerHTML = `
+          <div style="display: flex; align-items: center; justify-content: center; padding: 40px; color: var(--text-error);">
+            <div style="text-align: center;">
+              <div style="font-size: 24px; margin-bottom: 10px;">❌</div>
+              <div>刷新失败: ${error}</div>
+              <button onclick="window.refreshAllSystemInfo()" style="
+                margin-top: 10px;
+                padding: 8px 16px;
+                background: var(--bg-primary);
+                border: 1px solid var(--border-color);
+                border-radius: var(--border-radius);
+                cursor: pointer;
+                font-size: 14px;
+              ">重试</button>
+            </div>
+          </div>
+        `;
+      }
+    }
+  };
+
   // 更新进程表格
   (window as any).updateProcessesTable = (processes: any[]) => {
     const tbody = document.getElementById('processes-table-body');
@@ -2611,10 +2735,8 @@ function setupGlobalModalFunctions(app: LovelyResApp) {
     tbody.innerHTML = processes.map((process, index) => `
       <tr data-pid="${process.pid}" class="process-row" style="
         border-bottom: 1px solid var(--border-color);
-        background: ${index % 2 === 0 ? 'var(--bg-primary)' : 'var(--bg-secondary)'};
-        transition: all 0.2s ease;
         cursor: context-menu;
-      " data-bg-normal="${index % 2 === 0 ? 'var(--bg-primary)' : 'var(--bg-secondary)'}" onmouseover="this.style.background='var(--bg-tertiary)'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.1)'; this.style.transform='translateX(2px)'" onmouseout="this.style.background=this.getAttribute('data-bg-normal'); this.style.boxShadow='none'; this.style.transform='translateX(0)'">
+      ">
         <td style="padding: var(--spacing-sm); font-size: 12px; color: var(--text-primary); border-right: 1px solid var(--border-color-light);">${process.pid}</td>
         <td style="padding: var(--spacing-sm); font-size: 12px; color: var(--text-primary); border-right: 1px solid var(--border-color-light);">${process.user}</td>
         <td style="padding: var(--spacing-sm); font-size: 12px; color: var(--text-primary); border-right: 1px solid var(--border-color-light); font-family: monospace;">${process.stat || '-'}</td>
@@ -2629,6 +2751,12 @@ function setupGlobalModalFunctions(app: LovelyResApp) {
       row.addEventListener('contextmenu', (e: Event) => {
         e.preventDefault();
         const mouseEvent = e as MouseEvent;
+
+        // 清除其他行的选中状态
+        tbody.querySelectorAll('tr').forEach(r => r.classList.remove('selected'));
+        // 选中当前行
+        (row as HTMLElement).classList.add('selected');
+
         const pid = (row as HTMLElement).getAttribute('data-pid');
         if (pid) {
           processContextMenu.showContextMenu(mouseEvent.clientX, mouseEvent.clientY, pid);
@@ -2661,10 +2789,8 @@ function setupGlobalModalFunctions(app: LovelyResApp) {
     tbody.innerHTML = networkDetails.map((conn, index) => `
       <tr class="network-row" data-protocol="${conn.protocol}" data-local="${conn.localAddress}" data-foreign="${conn.foreignAddress}" data-state="${conn.state}" data-pid="${conn.pid || '-'}" data-process="${conn.process}" style="
         border-bottom: 1px solid var(--border-color);
-        background: ${index % 2 === 0 ? 'var(--bg-primary)' : 'var(--bg-secondary)'};
-        transition: all 0.2s ease;
         cursor: context-menu;
-      " data-bg-normal="${index % 2 === 0 ? 'var(--bg-primary)' : 'var(--bg-secondary)'}" onmouseover="this.style.background='var(--bg-tertiary)'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.1)'; this.style.transform='translateX(2px)'" onmouseout="this.style.background=this.getAttribute('data-bg-normal'); this.style.boxShadow='none'; this.style.transform='translateX(0)'">
+      ">
         <td style="padding: var(--spacing-sm); font-size: 12px; color: var(--text-primary); border-right: 1px solid var(--border-color-light);">${conn.protocol}</td>
         <td style="padding: var(--spacing-sm); font-size: 12px; color: var(--text-primary); border-right: 1px solid var(--border-color-light);">${conn.localAddress}</td>
         <td style="padding: var(--spacing-sm); font-size: 12px; color: var(--text-primary); border-right: 1px solid var(--border-color-light);">${conn.foreignAddress}</td>
@@ -2679,6 +2805,12 @@ function setupGlobalModalFunctions(app: LovelyResApp) {
       row.addEventListener('contextmenu', (e: Event) => {
         e.preventDefault();
         const mouseEvent = e as MouseEvent;
+
+        // 清除其他行的选中状态
+        tbody.querySelectorAll('tr').forEach(r => r.classList.remove('selected'));
+        // 选中当前行
+        (row as HTMLElement).classList.add('selected');
+
         const protocol = (row as HTMLElement).getAttribute('data-protocol') || '';
         const localAddress = (row as HTMLElement).getAttribute('data-local') || '';
         const foreignAddress = (row as HTMLElement).getAttribute('data-foreign') || '';
@@ -2727,10 +2859,8 @@ function setupGlobalModalFunctions(app: LovelyResApp) {
     tbody.innerHTML = services.map((service, index) => `
       <tr data-service-name="${service.name}" style="
         border-bottom: 1px solid var(--border-color);
-        background: ${index % 2 === 0 ? 'var(--bg-primary)' : 'var(--bg-secondary)'};
-        transition: background-color 0.2s ease;
         cursor: context-menu;
-      " onmouseover="this.style.background='var(--bg-tertiary)'" onmouseout="this.style.background='${index % 2 === 0 ? 'var(--bg-primary)' : 'var(--bg-secondary)'}'">
+      ">
         <td style="padding: var(--spacing-sm); font-size: 12px; color: var(--text-primary); border-right: 1px solid var(--border-color-light);">${service.name}</td>
         <td style="padding: var(--spacing-sm); font-size: 12px; color: var(--text-primary); border-right: 1px solid var(--border-color-light);">
           <span style="color: ${service.status === 'active' ? 'var(--success-color)' : 'var(--error-color)'};">
@@ -2747,6 +2877,12 @@ function setupGlobalModalFunctions(app: LovelyResApp) {
       row.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         const mouseEvent = e as MouseEvent;
+
+        // 清除其他行的选中状态
+        tbody.querySelectorAll('tr').forEach(r => r.classList.remove('selected'));
+        // 选中当前行
+        (row as HTMLElement).classList.add('selected');
+
         const serviceName = (row as HTMLElement).getAttribute('data-service-name');
         if (serviceName) {
           serviceContextMenu.showContextMenu(mouseEvent.clientX, mouseEvent.clientY, serviceName);
@@ -2784,10 +2920,8 @@ function setupGlobalModalFunctions(app: LovelyResApp) {
     tbody.innerHTML = users.map((user, index) => `
       <tr data-username="${user.username}" style="
         border-bottom: 1px solid var(--border-color);
-        background: ${index % 2 === 0 ? 'var(--bg-primary)' : 'var(--bg-secondary)'};
-        transition: background-color 0.2s ease;
         cursor: context-menu;
-      " onmouseover="this.style.background='var(--bg-tertiary)'" onmouseout="this.style.background='${index % 2 === 0 ? 'var(--bg-primary)' : 'var(--bg-secondary)'}'">
+      ">
         <td style="padding: var(--spacing-sm); font-size: 12px; color: var(--text-primary); border-right: 1px solid var(--border-color-light);">${user.username}</td>
         <td style="padding: var(--spacing-sm); font-size: 12px; color: var(--text-primary); border-right: 1px solid var(--border-color-light);">${user.uid}</td>
         <td style="padding: var(--spacing-sm); font-size: 12px; color: var(--text-primary); border-right: 1px solid var(--border-color-light);">${user.gid}</td>
@@ -2801,6 +2935,12 @@ function setupGlobalModalFunctions(app: LovelyResApp) {
       row.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         const mouseEvent = e as MouseEvent;
+
+        // 清除其他行的选中状态
+        tbody.querySelectorAll('tr').forEach(r => r.classList.remove('selected'));
+        // 选中当前行
+        (row as HTMLElement).classList.add('selected');
+
         const username = (row as HTMLElement).getAttribute('data-username');
         if (username) {
           userContextMenu.showContextMenu(mouseEvent.clientX, mouseEvent.clientY, username);
@@ -2828,10 +2968,8 @@ function setupGlobalModalFunctions(app: LovelyResApp) {
     tbody.innerHTML = autostart.map((item, index) => `
       <tr data-startup-name="${item.name}" data-startup-type="${item.type}" data-startup-path="${item.path || ''}" data-startup-command="${item.command}" style="
         border-bottom: 1px solid var(--border-color);
-        background: ${index % 2 === 0 ? 'var(--bg-primary)' : 'var(--bg-secondary)'};
-        transition: background-color 0.2s ease;
         cursor: context-menu;
-      " onmouseover="this.style.background='var(--bg-tertiary)'" onmouseout="this.style.background='${index % 2 === 0 ? 'var(--bg-primary)' : 'var(--bg-secondary)'}'">
+      ">
         <td style="padding: var(--spacing-sm); font-size: 12px; color: var(--text-primary); border-right: 1px solid var(--border-color-light);">${item.name}</td>
         <td style="padding: var(--spacing-sm); font-size: 12px; color: var(--text-primary); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-right: 1px solid var(--border-color-light);" title="${item.command}">${item.command}</td>
         <td style="padding: var(--spacing-sm); font-size: 12px; color: var(--text-primary); border-right: 1px solid var(--border-color-light);">
@@ -2848,6 +2986,12 @@ function setupGlobalModalFunctions(app: LovelyResApp) {
       row.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         const mouseEvent = e as MouseEvent;
+
+        // 清除其他行的选中状态
+        tbody.querySelectorAll('tr').forEach(r => r.classList.remove('selected'));
+        // 选中当前行
+        (row as HTMLElement).classList.add('selected');
+
         const name = (row as HTMLElement).getAttribute('data-startup-name') || '';
         const type = (row as HTMLElement).getAttribute('data-startup-type') || '';
         const path = (row as HTMLElement).getAttribute('data-startup-path') || '';
@@ -2882,12 +3026,10 @@ function setupGlobalModalFunctions(app: LovelyResApp) {
     }
 
     tbody.innerHTML = cronJobs.map((job, index) => `
-      <tr data-cron-user="${job.user}" data-cron-schedule="${job.schedule}" data-cron-command="${job.command}" style="
+      <tr data-cron-user="${job.user}" data-cron-schedule="${job.schedule}" data-cron-command="${job.command}" data-cron-source="${job.source || ''}" style="
         border-bottom: 1px solid var(--border-color);
-        background: ${index % 2 === 0 ? 'var(--bg-primary)' : 'var(--bg-secondary)'};
-        transition: background-color 0.2s ease;
         cursor: context-menu;
-      " onmouseover="this.style.background='var(--bg-tertiary)'" onmouseout="this.style.background='${index % 2 === 0 ? 'var(--bg-primary)' : 'var(--bg-secondary)'}'">
+      ">
         <td style="padding: var(--spacing-sm); font-size: 12px; color: var(--text-primary); border-right: 1px solid var(--border-color-light);">${job.user}</td>
         <td style="padding: var(--spacing-sm); font-size: 12px; color: var(--text-primary); font-family: monospace; border-right: 1px solid var(--border-color-light);">${job.schedule}</td>
         <td style="padding: var(--spacing-sm); font-size: 12px; color: var(--text-primary); max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${job.command}">${job.command}</td>
@@ -2899,15 +3041,23 @@ function setupGlobalModalFunctions(app: LovelyResApp) {
       row.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         const mouseEvent = e as MouseEvent;
+
+        // 清除其他行的选中状态
+        tbody.querySelectorAll('tr').forEach(r => r.classList.remove('selected'));
+        // 选中当前行
+        (row as HTMLElement).classList.add('selected');
+
         const user = (row as HTMLElement).getAttribute('data-cron-user') || '';
         const schedule = (row as HTMLElement).getAttribute('data-cron-schedule') || '';
         const command = (row as HTMLElement).getAttribute('data-cron-command') || '';
+        const source = (row as HTMLElement).getAttribute('data-cron-source') || '';
 
         if (user && command) {
           cronContextMenu.showContextMenu(mouseEvent.clientX, mouseEvent.clientY, {
             user,
             schedule,
-            command
+            command,
+            source
           });
         }
       });
@@ -2933,10 +3083,8 @@ function setupGlobalModalFunctions(app: LovelyResApp) {
     tbody.innerHTML = firewallRules.map((rule, index) => `
       <tr data-chain="${rule.chain}" data-target="${rule.target}" data-protocol="${rule.protocol}" data-source="${rule.source}" data-destination="${rule.destination}" data-options="${rule.options}" style="
         border-bottom: 1px solid var(--border-color);
-        background: ${index % 2 === 0 ? 'var(--bg-primary)' : 'var(--bg-secondary)'};
-        transition: background-color 0.2s ease;
         cursor: context-menu;
-      " onmouseover="this.style.background='var(--bg-tertiary)'" onmouseout="this.style.background='${index % 2 === 0 ? 'var(--bg-primary)' : 'var(--bg-secondary)'}'">
+      ">
         <td style="padding: var(--spacing-sm); font-size: 12px; color: var(--text-primary); border-right: 1px solid var(--border-color-light);">${rule.chain}</td>
         <td style="padding: var(--spacing-sm); font-size: 12px; color: var(--text-primary); border-right: 1px solid var(--border-color-light);">${rule.target}</td>
         <td style="padding: var(--spacing-sm); font-size: 12px; color: var(--text-primary); border-right: 1px solid var(--border-color-light);">${rule.protocol}</td>
@@ -2951,6 +3099,12 @@ function setupGlobalModalFunctions(app: LovelyResApp) {
       row.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         const mouseEvent = e as MouseEvent;
+
+        // 清除其他行的选中状态
+        tbody.querySelectorAll('tr').forEach(r => r.classList.remove('selected'));
+        // 选中当前行
+        (row as HTMLElement).classList.add('selected');
+
         const chain = (row as HTMLElement).getAttribute('data-chain') || '';
         const target = (row as HTMLElement).getAttribute('data-target') || '';
         const protocol = (row as HTMLElement).getAttribute('data-protocol') || '';

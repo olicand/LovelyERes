@@ -52,6 +52,80 @@ import {
   BookOpen
 } from '@icon-park/svg';
 
+// 添加系统信息页面的样式
+const systemInfoStyles = `
+  <style>
+    .system-info-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--spacing-sm) var(--spacing-md);
+      border-bottom: 1px solid var(--border-color);
+      background: var(--bg-secondary);
+    }
+    
+    .system-info-tabs {
+      display: flex;
+      gap: var(--spacing-xs);
+      flex-wrap: wrap;
+    }
+    
+    .system-info-actions {
+      display: flex;
+      gap: var(--spacing-sm);
+      align-items: center;
+    }
+    
+    .refresh-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--border-radius);
+      color: var(--text-primary);
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s ease;
+    }
+    
+    .refresh-btn:hover {
+      background: var(--bg-tertiary);
+      border-color: var(--border-color-hover);
+      transform: translateY(-1px);
+    }
+    
+    .refresh-btn:active {
+      transform: translateY(0);
+    }
+    
+    .refresh-btn svg {
+      transition: transform 0.5s ease;
+    }
+    
+    .refresh-btn:hover svg {
+      transform: rotate(180deg);
+    }
+    
+    @media (max-width: 768px) {
+      .system-info-header {
+        flex-direction: column;
+        gap: var(--spacing-md);
+        align-items: stretch;
+      }
+      
+      .system-info-tabs {
+        justify-content: center;
+      }
+      
+      .system-info-actions {
+        justify-content: center;
+      }
+    }
+  </style>
+`;
+
 export class ModernUIRenderer {
   private stateManager: StateManager;
   private state: AppState;
@@ -66,6 +140,14 @@ export class ModernUIRenderer {
     this.dashboardRenderer = new DashboardRenderer();
     this.kubernetesRenderer = new KubernetesRenderer();
     this.sftpContextMenuRenderer = new SftpContextMenuRenderer();
+
+    // 注入系统信息页面样式
+    if (!document.querySelector('#system-info-styles')) {
+      const styleElement = document.createElement('div');
+      styleElement.id = 'system-info-styles';
+      styleElement.innerHTML = systemInfoStyles;
+      document.head.appendChild(styleElement.firstElementChild!);
+    }
 
     // 注册Kubernetes Tab切换函数
     (window as any).switchKubernetesTab = (tabId: string) => {
@@ -597,14 +679,22 @@ export class ModernUIRenderer {
   private renderSystemInfo(): string {
     return `
       <div class="system-info-container">
-        <div class="system-info-tabs">
-          <button class="tab-btn active" data-tab="processes">进程详情</button>
-          <button class="tab-btn" data-tab="network">网络详情</button>
-          <button class="tab-btn" data-tab="services">系统服务</button>
-          <button class="tab-btn" data-tab="users">用户列表</button>
-          <button class="tab-btn" data-tab="autostart">自启动</button>
-          <button class="tab-btn" data-tab="cron">计划任务</button>
-          <button class="tab-btn" data-tab="firewall">防火墙</button>
+        <div class="system-info-header">
+          <div class="system-info-tabs">
+            <button class="tab-btn active" data-tab="processes">进程详情</button>
+            <button class="tab-btn" data-tab="network">网络详情</button>
+            <button class="tab-btn" data-tab="services">系统服务</button>
+            <button class="tab-btn" data-tab="users">用户列表</button>
+            <button class="tab-btn" data-tab="autostart">自启动</button>
+            <button class="tab-btn" data-tab="cron">计划任务</button>
+            <button class="tab-btn" data-tab="firewall">防火墙</button>
+          </div>
+          <div class="system-info-actions">
+            <button class="refresh-btn" onclick="window.refreshAllSystemInfo()" title="刷新所有系统信息">
+              ${Refresh({ theme: 'outline', size: '16', fill: 'currentColor' })}
+              <span>刷新</span>
+            </button>
+          </div>
         </div>
 
         <div class="system-info-content" id="system-info-content">

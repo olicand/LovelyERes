@@ -116,6 +116,12 @@ export class UserContextMenu {
               <span>解锁用户账户</span>
             </span>
           </div>
+          <div class="menu-item" data-action="delete-user">
+            <span class="menu-label">
+              ${IconPark.Delete({ theme: 'outline', size: '14', fill: 'currentColor' })}
+              <span>删除用户账户</span>
+            </span>
+          </div>
           <div class="menu-item" data-action="passwd-expire">
             <span class="menu-label">
               ${IconPark.Timer({ theme: 'outline', size: '14', fill: 'currentColor' })}
@@ -704,6 +710,21 @@ export class UserContextMenu {
         actionName = '解锁用户账户'
         break
 
+      case 'delete-user':
+        // Safety checks for critical users
+        if (user === 'root' || user === '0') {
+          this.showModal('错误', '不能删除root用户！')
+          return
+        }
+        
+        if (user === 'nobody' || user === 'daemon' || user === 'bin' || user === 'sys' || user === 'sync' || user === 'games' || user === 'man' || user === 'lp' || user === 'mail' || user === 'news' || user === 'uucp' || user === 'proxy' || user === 'www-data' || user === 'backup' || user === 'list' || user === 'irc' || user === 'gnats') {
+          this.showModal('错误', `不能删除系统用户 ${user}！\n\n此用户是系统正常运行所必需的。`)
+          return
+        }
+        
+        this.showDeleteConfirmation(user)
+        return
+
       case 'passwd-expire':
         command = `chage -l ${user} 2>/dev/null || echo "⚠️ 需要root权限查看密码过期信息"`
         title = `密码过期时间 - ${user}`
@@ -847,6 +868,161 @@ export class UserContextMenu {
       this.showModal(title, result.output || '✓ 命令执行完成，无输出')
     } catch (error) {
       this.showModal(title, `❌ 执行失败: ${error}`)
+    }
+  }
+
+  /**
+   * 显示删除用户确认对话框
+   */
+  private showDeleteConfirmation(username: string) {
+    // 创建确认对话框
+    const confirmModal = document.createElement('div')
+    confirmModal.id = 'delete-user-confirm-modal'
+    confirmModal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10002;
+    `
+
+    confirmModal.innerHTML = `
+      <div class="modal-content" style="
+        background: var(--bg-primary);
+        border-radius: var(--border-radius);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        max-width: 500px;
+        width: 90%;
+        padding: 0;
+      ">
+        <div class="modal-header" style="
+          padding: var(--spacing-md);
+          border-bottom: 1px solid var(--border-color);
+          display: flex;
+          align-items: center;
+          gap: var(--spacing-md);
+        ">
+          ${IconPark.Delete({ theme: 'filled', size: '24', fill: '#ef4444' })}
+          <h3 style="margin: 0; color: #ef4444; font-size: 18px;">删除用户确认</h3>
+        </div>
+        <div class="modal-body" style="
+          padding: var(--spacing-md);
+          color: var(--text-primary);
+        ">
+          <div style="margin-bottom: var(--spacing-md);">
+            <strong style="color: #ef4444;">⚠️ 危险操作：即将删除用户 <code style="background: var(--bg-secondary); padding: 2px 6px; border-radius: 4px;">${username}</code></strong>
+          </div>
+          
+          <div style="margin-bottom: var(--spacing-md);">
+            <strong>此操作将永久删除：</strong>
+            <ul style="margin: 8px 0; padding-left: 20px;">
+              <li>用户账户 <code>${username}</code></li>
+              <li>用户主目录 <code>/home/${username}</code></li>
+              <li>用户邮件池</li>
+              <li>用户所属的组（如果组中没有其他用户）</li>
+            </ul>
+          </div>
+          
+          <div style="margin-bottom: var(--spacing-md); padding: var(--spacing-sm); background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--border-radius-sm);">
+            <strong style="color: #ef4444;">⚠️ 此操作不可撤销！</strong>
+          </div>
+          
+          <div style="margin-bottom: var(--spacing-md);">
+            <strong>执行前请确认：</strong>
+            <ul style="margin: 8px 0; padding-left: 20px; font-size: 13px;">
+              <li>✓ 用户没有重要数据需要备份</li>
+              <li>✓ 用户没有正在运行的进程</li>
+              <li>✓ 已备份所有重要文件</li>
+              <li>✓ 确认此用户不再需要</li>
+            </ul>
+          </div>
+          
+          <div style="padding: var(--spacing-sm); background: var(--bg-secondary); border-radius: var(--border-radius-sm); font-family: var(--font-mono); font-size: 12px;">
+            <strong>执行命令：</strong><br>
+            sudo userdel -r ${username}
+          </div>
+        </div>
+        <div class="modal-footer" style="
+          padding: var(--spacing-md);
+          border-top: 1px solid var(--border-color);
+          display: flex;
+          justify-content: flex-end;
+          gap: var(--spacing-sm);
+        ">
+          <button id="delete-user-cancel" class="modern-btn secondary" style="
+            padding: 8px 16px;
+            font-size: 14px;
+          ">取消</button>
+          <button id="delete-user-confirm" class="modern-btn danger" style="
+            padding: 8px 16px;
+            font-size: 14px;
+            background: #ef4444;
+            border-color: #ef4444;
+          ">确认删除</button>
+        </div>
+      </div>
+    `
+
+    document.body.appendChild(confirmModal)
+
+    // 绑定事件
+    document.getElementById('delete-user-cancel')?.addEventListener('click', () => {
+      document.body.removeChild(confirmModal)
+    })
+
+    document.getElementById('delete-user-confirm')?.addEventListener('click', async () => {
+      document.body.removeChild(confirmModal)
+      await this.executeDeleteUser(username)
+    })
+
+    // 点击外部关闭
+    confirmModal.addEventListener('click', (e) => {
+      if (e.target === confirmModal) {
+        document.body.removeChild(confirmModal)
+      }
+    })
+
+    // ESC键关闭
+    const escHandler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        document.body.removeChild(confirmModal)
+        document.removeEventListener('keydown', escHandler)
+      }
+    }
+    document.addEventListener('keydown', escHandler)
+  }
+
+  /**
+   * 执行删除用户操作
+   */
+  private async executeDeleteUser(username: string) {
+    const command = `sudo userdel -r ${username}`
+    const title = `删除用户 - ${username}`
+
+    try {
+      const accountInfo = this.selectedUsername ? ` (账号: ${this.selectedUsername})` : ''
+      this.showModal(title, `⏳ 正在删除用户: ${username}${accountInfo}...`)
+
+      const params: any = { command }
+      if (this.selectedUsername) {
+        params.username = this.selectedUsername
+        console.log('👤 使用账号执行删除用户命令:', this.selectedUsername)
+      }
+      
+      const result = await invoke('ssh_execute_command_direct', params) as { output: string; exit_code: number }
+
+      if (result.exit_code === 0) {
+        this.showModal(title, `✓ 用户 ${username} 删除成功！\n\n${result.output || ''}`)
+      } else {
+        this.showModal(title, `❌ 删除用户失败：\n\n${result.output || '未知错误'}`)
+      }
+    } catch (error) {
+      this.showModal(title, `❌ 删除用户失败: ${error}`)
     }
   }
 

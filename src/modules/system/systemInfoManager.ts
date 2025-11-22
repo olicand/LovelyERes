@@ -750,25 +750,25 @@ export class SystemInfoManager {
     try {
       const commands = [
         // 1. 获取所有用户的crontab
-        `for user in $(cut -f1 -d: /etc/passwd); do sudo crontab -u $user -l 2>/dev/null | grep -v "^#" | grep -v "^$" | awk -v u="$user" 'BEGIN{OFS=","} {schedule=$1" "$2" "$3" "$4" "$5; $1=$2=$3=$4=$5=""; print u,schedule,substr($0,6)}'; done`,
+        `for user in $(cut -f1 -d: /etc/passwd); do sudo crontab -u $user -l 2>/dev/null | grep -v "^#" | grep -v "^$" | awk -v u="$user" 'BEGIN{OFS=","} {schedule=$1" "$2" "$3" "$4" "$5; $1=$2=$3=$4=$5=""; print u,schedule,substr($0,6),"crontab:"u}'; done`,
 
         // 2. 系统级 /etc/crontab
-        `grep -v "^#" /etc/crontab 2>/dev/null | grep -v "^$" | grep -v "^[A-Z]" | awk 'BEGIN{OFS=","} {schedule=$1" "$2" "$3" "$4" "$5; user=$6; $1=$2=$3=$4=$5=$6=""; print user,schedule,substr($0,7)}'`,
+        `grep -v "^#" /etc/crontab 2>/dev/null | grep -v "^$" | grep -v "^[A-Z]" | awk 'BEGIN{OFS=","} {schedule=$1" "$2" "$3" "$4" "$5; user=$6; $1=$2=$3=$4=$5=$6=""; print user,schedule,substr($0,7),"/etc/crontab"}'`,
 
         // 3. /etc/cron.d/* 目录下的任务
-        `find /etc/cron.d -type f 2>/dev/null | xargs grep -h -v "^#" 2>/dev/null | grep -v "^$" | awk 'BEGIN{OFS=","} {schedule=$1" "$2" "$3" "$4" "$5; user=$6; $1=$2=$3=$4=$5=$6=""; print user,schedule,substr($0,7)}'`,
+        `find /etc/cron.d -type f 2>/dev/null | xargs grep -H -v "^#" 2>/dev/null | grep -v "^$" | sed 's/:/,/' | awk -F, 'BEGIN{OFS=","} {source=$1; $1=""; line=$0; split(line,a," "); schedule=a[2]" "a[3]" "a[4]" "a[5]" "a[6]; user=a[7]; cmd=substr(line, length(schedule)+length(user)+4); print user,schedule,cmd,source}'`,
 
         // 4. /etc/cron.hourly
-        `ls /etc/cron.hourly/ 2>/dev/null | awk 'BEGIN{OFS=","} {print "root","@hourly",$0}'`,
+        `ls /etc/cron.hourly/ 2>/dev/null | awk 'BEGIN{OFS=","} {print "root","@hourly",$0,"/etc/cron.hourly/"$0}'`,
 
         // 5. /etc/cron.daily
-        `ls /etc/cron.daily/ 2>/dev/null | awk 'BEGIN{OFS=","} {print "root","@daily",$0}'`,
+        `ls /etc/cron.daily/ 2>/dev/null | awk 'BEGIN{OFS=","} {print "root","@daily",$0,"/etc/cron.daily/"$0}'`,
 
         // 6. /etc/cron.weekly
-        `ls /etc/cron.weekly/ 2>/dev/null | awk 'BEGIN{OFS=","} {print "root","@weekly",$0}'`,
+        `ls /etc/cron.weekly/ 2>/dev/null | awk 'BEGIN{OFS=","} {print "root","@weekly",$0,"/etc/cron.weekly/"$0}'`,
 
         // 7. /etc/cron.monthly
-        `ls /etc/cron.monthly/ 2>/dev/null | awk 'BEGIN{OFS=","} {print "root","@monthly",$0}'`
+        `ls /etc/cron.monthly/ 2>/dev/null | awk 'BEGIN{OFS=","} {print "root","@monthly",$0,"/etc/cron.monthly/"$0}'`
       ];
 
       // 将所有命令组合成一个，用 ; 分隔
@@ -785,15 +785,33 @@ export class SystemInfoManager {
   /**
    * 解析计划任务
    */
-  private parseCronJobs(data: string): Array<{ user: string; schedule: string; command: string }> {
+  private parseCronJobs(data: string): Array<{ user: string; schedule: string; command: string; source: string }> {
     if (!data.trim()) return [];
 
     return data.trim().split('\n').map(line => {
+      // 简单的逗号分割可能会破坏包含逗号的命令，但这是目前系统的实现方式
+      // 我们尝试倒序解析以获取source，或者假设最后一部分是source
+      // 但为了保持兼容性，我们先按逗号分割
       const parts = line.split(',');
+      
+      // 如果parts长度大于4，说明command中包含逗号
+      // 重新组合command: parts[2] 到 parts[length-2]
+      let user = parts[0] || 'root';
+      let schedule = parts[1] || '';
+      let source = parts[parts.length - 1] || '';
+      let command = '';
+
+      if (parts.length > 4) {
+        command = parts.slice(2, parts.length - 1).join(',');
+      } else {
+        command = parts[2] || '';
+      }
+
       return {
-        user: parts[0] || 'root',
-        schedule: parts[1] || '',
-        command: parts[2] || ''
+        user,
+        schedule,
+        command,
+        source
       };
     }).filter(c => c.schedule);
   }
@@ -893,6 +911,14 @@ export class SystemInfoManager {
       cronJobs: [],
       firewallRules: []
     };
+  }
+
+  /**
+   * 清除缓存
+   */
+  clearCache(): void {
+    this.detailedInfo = undefined;
+    console.log('🧹 系统信息缓存已清除');
   }
 
   /**

@@ -161,8 +161,25 @@
   border-bottom: none;
 }
 
+/* 斑马纹背景 */
+.system-table tbody tr:nth-child(odd) td {
+  background: var(--bg-primary);
+}
+
+.system-table tbody tr:nth-child(even) td {
+  background: var(--bg-secondary);
+}
+
+/* Hover 效果 */
 .system-table tbody tr:hover td {
-  background: var(--bg-hover);
+  background: var(--bg-tertiary) !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* 选中效果 */
+.system-table tbody tr.selected td {
+  background: var(--bg-tertiary) !important;
+  box-shadow: inset 3px 0 0 var(--primary-color), 0 2px 8px rgba(0,0,0,0.1);
 }
 
 /* Status Badges */

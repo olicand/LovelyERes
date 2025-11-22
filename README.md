@@ -1,11 +1,11 @@
 <div align="center">
-  <img src="public/logo.png" alt="LovelyERes Logo" width="160" height="160">
+  <img src="public/logo.png" alt="LovelyERes Logo" width="250" height="250">
 
   # LovelyERes
   
-  **Linux Emergency Response Tool**
+  **Linux 应急响应工具**
   
-  A modern, high-performance SSH terminal and diagnostic toolkit designed for rapid server management and emergency response.
+  一款专为快速服务器管理和应急响应设计的现代化、高性能 SSH 终端及诊断工具箱。
 
   [![Tauri](https://img.shields.io/badge/Tauri-v2.0-24C8DB?style=flat-square&logo=tauri&logoColor=white)](https://tauri.app)
   [![Vue](https://img.shields.io/badge/Vue.js-v3.5-4FC08D?style=flat-square&logo=vue.js&logoColor=white)](https://vuejs.org)
@@ -13,106 +13,99 @@
   [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
   [![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
 
-  [Features](#-features) • [Tech Stack](#-tech-stack) • [Getting Started](#-getting-started) • [Roadmap](#-roadmap)
+  [功能特性](#-功能特性) • [技术栈](#-技术栈) • [快速开始](#-快速开始) • [开发计划](#-开发计划)
 </div>
 
 ---
 
-## 📖 Introduction
+## 📖 简介
 
-**LovelyERes** (Lovely Emergency Response) is a specialized desktop application tailored for system administrators and DevOps engineers. Unlike standard SSH clients, LovelyERes is optimized for **emergency response scenarios**, providing a robust, secure, and interference-free environment to diagnose and fix Linux server issues.
+**LovelyERes** (Lovely Emergency Response) 是一款专为应急响应、CTF 比赛和日常运维设计的多功能桌面应用。与标准的 SSH 客户端不同，LovelyERes 专为 **应急响应场景和攻防演练** 优化，提供了一个稳健、安全且高效的环境，用于快速诊断、修复 Linux 服务器问题，同时也能胜任日常运维管理工作。
 
-Built on the **Tauri v2** framework, it offers a lightweight native footprint with the modern UI capabilities of **Vue 3**.
+基于 **Tauri v2** 框架构建，它结合了轻量级的原生占用和 **Vue 3** 带来的现代化 UI 体验。
 
-## ✨ Features
+## ✨ 功能截图
 
-- **🔒 Secure SSH Terminal**: Native Rust-based SSH implementation (`ssh2`) combined with `xterm.js` for a high-fidelity terminal experience.
-- **🛡️ Encrypted Storage**: Sensitive credentials and keys are encrypted locally using `AES-GCM`, ensuring your server access remains secure.
-- **⚡ High Performance**: Backend logic written in pure Rust for minimal latency and optimal resource usage.
-- **🖥️ Modern UI**: A clean, distraction-free interface built with Vue 3 and IconPark, designed for long sessions.
-- **🔍 Detection Manager**: Integrated tools for rapid system diagnostics.
-- **📂 Cross-Platform**: Seamless support for Windows, macOS, and Linux.
+## 🛠 技术栈
 
-## 🛠 Tech Stack
-
-| Component | Technology | Description |
+| 组件 | 技术 | 说明 |
 |-----------|------------|-------------|
-| **Core** | [Tauri v2](https://tauri.app) | Framework for building tiny, fast binaries |
-| **Frontend** | [Vue 3](https://vuejs.org) | Reactive UI framework |
-| **Build Tool** | [Vite](https://vitejs.dev) | Next Generation Frontend Tooling |
-| **Language** | [TypeScript](https://www.typescriptlang.org) | Type-safe JavaScript |
-| **Backend** | [Rust](https://www.rust-lang.org) | Systems programming language for logic |
-| **Terminal** | [xterm.js](https://xtermjs.org) | Full-featured terminal component |
-| **Icons** | [IconPark](https://iconpark.bytedance.com) | Rich icon library |
+| **核心框架** | [Tauri v2](https://tauri.app) | 构建轻量级、快速的二进制应用框架 |
+| **前端框架** | [Vue 3](https://vuejs.org) | 响应式 UI 框架 |
+| **构建工具** | [Vite](https://vitejs.dev) | 下一代前端构建工具 |
+| **开发语言** | [TypeScript](https://www.typescriptlang.org) | 类型安全的 JavaScript |
+| **后端逻辑** | [Rust](https://www.rust-lang.org) | 用于核心逻辑的系统级编程语言 |
+| **终端组件** | [xterm.js](https://xtermjs.org) | 全功能终端组件 |
+| **图标库** | [IconPark](https://iconpark.bytedance.com) | 丰富的图标资源库 |
 
-## 📂 Project Structure
+## 📂 项目结构
 
 ```bash
 LovelyRes/
-├── src/                  # Frontend Source (Vue 3)
-│   ├── components/       # UI Components (SSHTerminal, etc.)
-│   ├── config/           # App Configuration
-│   ├── css/              # Global Styles & Themes
-│   └── App.vue           # Main Entry Component
-├── src-tauri/            # Backend Source (Rust)
+├── src/                  # 前端源码 (Vue 3)
+│   ├── components/       # UI 组件 (SSHTerminal, etc.)
+│   ├── config/           # 应用配置
+│   ├── css/              # 全局样式 & 主题
+│   └── App.vue           # 主入口组件
+├── src-tauri/            # 后端源码 (Rust)
 │   ├── src/
-│   │   ├── ssh/          # SSH Implementation
-│   │   ├── crypto_keys.rs# Encryption Logic
+│   │   ├── ssh/          # SSH 实现
+│   │   ├── crypto_keys.rs# 加密逻辑
 │   │   └── detection_manager.rs
-│   ├── capabilities/     # Tauri Permissions
-│   └── tauri.conf.json   # Tauri Config
-├── public/               # Static Assets (Logos, Icons)
-└── doc/                  # Documentation
+│   ├── capabilities/     # Tauri 权限配置
+│   └── tauri.conf.json   # Tauri 配置
+├── public/               # 静态资源 (Logos, Icons)
+└── doc/                  # 文档
 ```
 
-## 🚀 Getting Started
+## 🚀 快速开始
 
-### Prerequisites
+### 环境要求
 
 - **Node.js** (v18+)
-- **Rust** (Latest Stable)
-- **Visual Studio Code** (Recommended) with Rust Analyzer & Volar
+- **Rust** (最新稳定版)
+- **Visual Studio Code** (推荐) 配合 Rust Analyzer & Volar 插件
 
-### Installation
+### 安装步骤
 
-1. **Clone the repository**
+1. **克隆仓库**
    ```bash
-   git clone https://github.com/yourusername/lovelyres.git
+   git clone https://github.com/Tokeii0/LovelyERes.git
    cd lovelyres
    ```
 
-2. **Install dependencies**
+2. **安装依赖**
    ```bash
    npm install
    ```
 
-3. **Run in Development Mode**
-   This command starts the frontend dev server and the Tauri rust backend.
+3. **运行开发模式**
+   该命令将启动前端开发服务器和 Tauri Rust 后端。
    ```bash
    npm run tauri dev
    ```
 
-4. **Build for Production**
+4. **构建生产版本**
    ```bash
    npm run tauri build
    ```
 
-## 🤝 Contributing
+## 🤝 贡献指南
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+欢迎提交 Pull Request 来参与贡献！
 
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+1. Fork 本项目
+2. 创建您的特性分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交您的更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 开启一个 Pull Request
 
-## 📜 License
+## 📜 开源协议
 
-Distributed under the MIT License. See `LICENSE` for more information.
+本项目基于 AGPLv3 协议开源。详情请参阅 `LICENSE` 文件。
 
 ---
 
 <div align="center">
-  <sub>Built with ❤️ by the LovelyRes Team</sub>
+  <sub>Built with ❤️ by the Tokeii</sub>
 </div>

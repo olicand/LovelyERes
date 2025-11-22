@@ -1965,8 +1965,343 @@ export class CommandHintsManager {
           'echo -n "password" | md5sum    # 计算字符串哈希'
         ],
         category: 'security'
-      }
+      },
 
+      // 系统管理命令
+      {
+        command: 'systemctl',
+        description: '管理systemd系统和服务管理器',
+        usage: 'systemctl [命令] [服务]',
+        examples: [
+          'systemctl start nginx          # 启动服务',
+          'systemctl stop nginx           # 停止服务',
+          'systemctl restart nginx        # 重启服务',
+          'systemctl reload nginx         # 重载配置文件',
+          'systemctl status nginx         # 查看服务状态',
+          'systemctl enable nginx         # 设置开机自启',
+          'systemctl disable nginx        # 取消开机自启',
+          'systemctl list-units --type=service # 列出所有服务',
+          'systemctl daemon-reload        # 重载systemd配置'
+        ],
+        commonOptions: ['start', 'stop', 'restart', 'status', 'enable', 'disable'],
+        category: 'system'
+      },
+      {
+        command: 'service',
+        description: '运行System V init脚本',
+        usage: 'service 服务 命令',
+        examples: [
+          'service nginx start            # 启动服务',
+          'service nginx stop             # 停止服务',
+          'service nginx restart          # 重启服务',
+          'service nginx status           # 查看状态',
+          'service --status-all           # 查看所有服务状态'
+        ],
+        category: 'system'
+      },
+      {
+        command: 'shutdown',
+        description: '关闭或重启系统',
+        usage: 'shutdown [选项] [时间] [警告信息]',
+        examples: [
+          'shutdown -h now                # 立即关机',
+          'shutdown -r now                # 立即重启',
+          'shutdown -h +10 "System down"  # 10分钟后关机',
+          'shutdown -c                   # 取消计划的关机'
+        ],
+        commonOptions: ['-h', '-r', '-c'],
+        category: 'system'
+      },
+      {
+        command: 'reboot',
+        description: '重启系统',
+        usage: 'reboot [选项]',
+        examples: [
+          'reboot                         # 立即重启',
+          'reboot -f                      # 强制重启'
+        ],
+        category: 'system'
+      },
+
+      // 磁盘和文件系统命令
+      {
+        command: 'mount',
+        description: '挂载文件系统',
+        usage: 'mount [选项] 设备 挂载点',
+        examples: [
+          'mount /dev/sda1 /mnt           # 挂载分区',
+          'mount -t ext4 /dev/sda1 /mnt   # 指定类型挂载',
+          'mount -o loop disk.iso /mnt    # 挂载ISO镜像',
+          'mount -a                       # 挂载/etc/fstab所有项',
+          'mount -o remount,rw /          # 重新挂载为读写'
+        ],
+        commonOptions: ['-t', '-o', '-a'],
+        category: 'system'
+      },
+      {
+        command: 'umount',
+        description: '卸载文件系统',
+        usage: 'umount [选项] 设备|挂载点',
+        examples: [
+          'umount /mnt                    # 卸载挂载点',
+          'umount /dev/sda1               # 卸载设备',
+          'umount -l /mnt                 # 延迟卸载（当设备忙时）',
+          'umount -f /mnt                 # 强制卸载'
+        ],
+        commonOptions: ['-l', '-f'],
+        category: 'system'
+      },
+      {
+        command: 'lsblk',
+        description: '列出块设备信息',
+        usage: 'lsblk [选项]',
+        examples: [
+          'lsblk                          # 列出所有块设备',
+          'lsblk -f                       # 显示文件系统信息',
+          'lsblk -m                       # 显示权限信息',
+          'lsblk -o NAME,SIZE,TYPE,MOUNTPOINT # 自定义输出列'
+        ],
+        commonOptions: ['-f', '-m', '-o'],
+        category: 'system'
+      },
+      {
+        command: 'fdisk',
+        description: '磁盘分区工具',
+        usage: 'fdisk [选项] 设备',
+        examples: [
+          'fdisk -l                       # 列出所有分区表',
+          'fdisk /dev/sda                 # 编辑sda的分区',
+          'fdisk -s /dev/sda1             # 显示分区大小'
+        ],
+        commonOptions: ['-l', '-s'],
+        category: 'system'
+      },
+
+      // 用户管理命令
+      {
+        command: 'useradd',
+        description: '创建新用户',
+        usage: 'useradd [选项] 用户名',
+        examples: [
+          'useradd john                   # 创建用户',
+          'useradd -m john                # 创建用户并建立主目录',
+          'useradd -s /bin/bash john      # 指定登录shell',
+          'useradd -g developers john     # 指定主组',
+          'useradd -G sudo,docker john    # 指定附加组'
+        ],
+        commonOptions: ['-m', '-s', '-g', '-G'],
+        category: 'permission'
+      },
+      {
+        command: 'usermod',
+        description: '修改用户账户',
+        usage: 'usermod [选项] 用户名',
+        examples: [
+          'usermod -aG sudo john          # 添加用户到sudo组',
+          'usermod -s /bin/zsh john       # 修改登录shell',
+          'usermod -L john                # 锁定用户账户',
+          'usermod -U john                # 解锁用户账户'
+        ],
+        commonOptions: ['-aG', '-s', '-L', '-U'],
+        category: 'permission'
+      },
+      {
+        command: 'passwd',
+        description: '修改用户密码',
+        usage: 'passwd [选项] [用户名]',
+        examples: [
+          'passwd                         # 修改当前用户密码',
+          'passwd john                    # 修改指定用户密码（需root）',
+          'passwd -d john                 # 删除密码（空密码登录）',
+          'passwd -l john                 # 锁定账户',
+          'passwd -e john                 # 强制下次登录修改密码'
+        ],
+        commonOptions: ['-d', '-l', '-u', '-e'],
+        category: 'permission'
+      },
+      {
+        command: 'sudo',
+        description: '以其他用户身份执行命令',
+        usage: 'sudo [选项] 命令',
+        examples: [
+          'sudo apt update                # 以root身份执行',
+          'sudo -u user command           # 以指定用户身份执行',
+          'sudo -i                        # 切换到root shell环境',
+          'sudo -s                        # 切换到root shell',
+          'sudo !!                        # 以sudo执行上一条命令'
+        ],
+        commonOptions: ['-u', '-i', '-s'],
+        category: 'permission'
+      },
+      {
+        command: 'su',
+        description: '切换用户ID或成为超级用户',
+        usage: 'su [选项] [用户名]',
+        examples: [
+          'su                             # 切换到root（保留当前环境）',
+          'su -                           # 切换到root（使用root环境）',
+          'su - john                      # 切换到用户john'
+        ],
+        commonOptions: ['-'],
+        category: 'permission'
+      },
+
+      // 更多网络命令
+      {
+        command: 'ip',
+        description: '现代化的网络配置工具（替代ifconfig）',
+        usage: 'ip [选项] 对象 命令',
+        examples: [
+          'ip addr show                   # 显示IP地址',
+          'ip link set eth0 up            # 启用接口',
+          'ip route show                  # 显示路由表',
+          'ip neigh show                  # 显示ARP缓存',
+          'ip addr add 192.168.1.10/24 dev eth0 # 添加IP地址',
+          'ip route add default via 192.168.1.1 # 添加默认路由'
+        ],
+        category: 'network'
+      },
+      {
+        command: 'ifconfig',
+        description: '配置网络接口（已废弃，建议用ip）',
+        usage: 'ifconfig [接口] [选项]',
+        examples: [
+          'ifconfig                       # 显示所有接口信息',
+          'ifconfig eth0                  # 显示指定接口信息',
+          'ifconfig eth0 up               # 启用接口',
+          'ifconfig eth0 192.168.1.10     # 设置IP地址'
+        ],
+        category: 'network'
+      },
+      {
+        command: 'traceroute',
+        description: '追踪数据包到达主机的路由路径',
+        usage: 'traceroute [选项] 主机',
+        examples: [
+          'traceroute google.com          # 追踪路由',
+          'traceroute -n google.com       # 不解析域名（更快）',
+          'traceroute -p 8080 host        # 指定端口',
+          'traceroute -m 30 host          # 设置最大跳数'
+        ],
+        commonOptions: ['-n', '-p', '-m'],
+        category: 'network'
+      },
+      {
+        command: 'dig',
+        description: 'DNS查找工具',
+        usage: 'dig [选项] 域名 [类型]',
+        examples: [
+          'dig google.com                 # 查询A记录',
+          'dig google.com MX              # 查询MX记录',
+          'dig google.com ANY             # 查询所有记录',
+          'dig @8.8.8.8 google.com        # 指定DNS服务器查询',
+          'dig +short google.com          # 简短输出'
+        ],
+        commonOptions: ['+short', '+trace'],
+        category: 'network'
+      },
+      {
+        command: 'nslookup',
+        description: '查询互联网域名服务器',
+        usage: 'nslookup [选项] 域名 [server]',
+        examples: [
+          'nslookup google.com            # 查询域名IP',
+          'nslookup 8.8.8.8               # 反向查询IP对应域名',
+          'nslookup -type=MX google.com   # 查询MX记录'
+        ],
+        category: 'network'
+      },
+
+      // 终端和编辑器
+      {
+        command: 'tmux',
+        description: '终端复用器，允许在单个窗口运行多个终端会话',
+        usage: 'tmux [命令]',
+        examples: [
+          'tmux                           # 开启新会话',
+          'tmux new -s session_name       # 开启命名会话',
+          'tmux ls                        # 列出所有会话',
+          'tmux attach -t session_name    # 接入会话',
+          'tmux kill-session -t name      # 结束会话'
+        ],
+        category: 'other'
+      },
+      {
+        command: 'screen',
+        description: '全屏窗口管理器',
+        usage: 'screen [选项]',
+        examples: [
+          'screen                         # 开启新会话',
+          'screen -S name                 # 开启命名会话',
+          'screen -ls                     # 列出会话',
+          'screen -r name                 # 恢复会话',
+          'screen -X -S name quit         # 结束会话'
+        ],
+        category: 'other'
+      },
+      {
+        command: 'vim',
+        description: 'Vi IMproved - 强大的文本编辑器',
+        usage: 'vim [选项] [文件...]',
+        examples: [
+          'vim file.txt                   # 编辑文件',
+          'vim +10 file.txt               # 打开并定位到第10行',
+          'vim -R file.txt                # 只读模式打开',
+          'vim diff file1 file2           # 比较两个文件'
+        ],
+        category: 'text'
+      },
+      {
+        command: 'nano',
+        description: '简单易用的命令行文本编辑器',
+        usage: 'nano [选项] [文件]',
+        examples: [
+          'nano file.txt                  # 编辑文件',
+          'nano -m file.txt               # 启用鼠标支持',
+          'nano -v file.txt               # 只读查看',
+          'nano +10 file.txt              # 打开并定位到第10行'
+        ],
+        category: 'text'
+      },
+      {
+        command: 'diff',
+        description: '比较文件的差异',
+        usage: 'diff [选项] 文件1 文件2',
+        examples: [
+          'diff file1 file2               # 比较两个文件',
+          'diff -u file1 file2            # 统一格式输出（常用）',
+          'diff -r dir1 dir2              # 递归比较目录',
+          'diff -w file1 file2            # 忽略空白字符差异',
+          'diff -y file1 file2            # 并排显示差异'
+        ],
+        commonOptions: ['-u', '-r', '-w', '-y'],
+        category: 'text'
+      },
+      {
+        command: 'ln',
+        description: '创建文件链接',
+        usage: 'ln [选项] 目标 [链接名]',
+        examples: [
+          'ln target link                 # 创建硬链接',
+          'ln -s target link              # 创建符号链接（软链接）',
+          'ln -sf target link             # 强制创建软链接（覆盖）',
+          'ln -s /dir/target .            # 在当前目录创建链接'
+        ],
+        commonOptions: ['-s', '-f', '-v'],
+        category: 'file'
+      },
+      {
+        command: 'watch',
+        description: '周期性执行命令并全屏显示输出',
+        usage: 'watch [选项] 命令',
+        examples: [
+          'watch ls -l                    # 每2秒执行一次ls -l',
+          'watch -n 1 date                # 每1秒显示日期',
+          'watch -d free -h               # 高亮显示变化区域'
+        ],
+        commonOptions: ['-n', '-d'],
+        category: 'process'
+      }
     ];
 
     // 将命令添加到Map中

@@ -6,7 +6,9 @@
 import './styles/sftp-context-menu.css';
 import './styles/sftp.css';
 import './styles/system-info.css';
+import './styles/log-analysis.css';
 
+import { invoke } from "@tauri-apps/api/core";
 import { LovelyResApp } from './modules/core/app';
 import { remoteOperationsManager } from './modules/remote/remoteOperationsManager';
 
@@ -151,6 +153,7 @@ import { PermissionsModal } from './modules/ui/permissionsModal';
 import { EmergencyResultModal } from './modules/ui/emergencyModal';
 import { CommandHistoryModal } from './modules/ui/commandHistoryModal';
 import { FileContextMenu } from './modules/ui/fileContextMenu';
+import { LogContextMenu } from './modules/ui/logContextMenu';
 
 // 移除旧的SSH连接状态变量，现在由模块化管理器处理
 
@@ -161,31 +164,48 @@ import { FileContextMenu } from './modules/ui/fileContextMenu';
 
 async function initializeApp() {
   try {
-    console.log('🚀 LovelyRes 启动中...');
+  console.log('🚀 LovelyRes 启动中...');
 
-    // 创建应用实例
-    app = new LovelyResApp();
+  // 创建应用实例
+  app = new LovelyResApp();
 
-    // 初始化应用
-    // 初始化模态组件
-    const fileViewerModal = new FileViewerModal();
-    const permissionsModal = new PermissionsModal();
-    const emergencyResultModal = new EmergencyResultModal();
-    const commandHistoryModal = new CommandHistoryModal();
-    const fileContextMenu = new FileContextMenu();
+  // 初始化应用
+  // 初始化模态组件
+  const fileViewerModal = new FileViewerModal();
+  const permissionsModal = new PermissionsModal();
+  const emergencyResultModal = new EmergencyResultModal();
+  const commandHistoryModal = new CommandHistoryModal();
+  const fileContextMenu = new FileContextMenu();
+  const logContextMenu = new LogContextMenu(); // 初始化日志右键菜单
 
-    // 将模态组件添加到全局作用域
-    (window as any).fileViewerModal = fileViewerModal;
-    (window as any).permissionsModal = permissionsModal;
-    (window as any).emergencyResultModal = emergencyResultModal;
-    (window as any).commandHistoryModal = commandHistoryModal;
-    (window as any).fileContextMenu = fileContextMenu;
+  // 将模态组件添加到全局作用域
+  (window as any).fileViewerModal = fileViewerModal;
+  (window as any).permissionsModal = permissionsModal;
+  (window as any).emergencyResultModal = emergencyResultModal;
+  (window as any).commandHistoryModal = commandHistoryModal;
+  (window as any).fileContextMenu = fileContextMenu;
+  (window as any).logContextMenu = logContextMenu;
 
-    console.log('✅ 所有模态组件已初始化');
+  // 添加全局日志右键菜单监听
+  document.addEventListener('contextmenu', (e) => {
+    const target = e.target as HTMLElement;
+    // 检查是否点击了日志条目
+    const logEntry = target.closest('.log-entry');
+    if (logEntry) {
+      e.preventDefault();
+      // 获取日志内容，去除多余空白
+      const content = logEntry.textContent?.trim().replace(/\s+/g, ' ') || '';
+      if (content) {
+        logContextMenu.showContextMenu(e.clientX, e.clientY, content);
+      }
+    }
+  });
 
-    await app.initialize();
+  console.log('✅ 所有模态组件已初始化');
 
-    console.log('✅ LovelyRes 启动完成');
+  await app.initialize();
+
+  console.log('✅ LovelyRes 启动完成');
 
     // 移除加载屏幕
     const loadingScreen = document.getElementById('loading-screen');
@@ -839,20 +859,20 @@ async function initializeApp() {
     }
   }
 
-  // 使用事件委托方式添加SSH终端浮动按钮的点击事件监听器
+  // 使用事件委托方式添加SSH终端按钮的点击事件监听器
   // 这样即使按钮被重新渲染，事件监听器也不会丢失
   document.body.addEventListener('click', (event) => {
     const target = event.target as HTMLElement;
-    // 检查点击的元素或其父元素是否是浮动按钮
-    const floatingBtn = target.closest('#ssh-terminal-floating-btn');
-    if (floatingBtn) {
-      console.log('🖱️ SSH终端浮动按钮被点击');
+    // 检查点击的元素或其父元素是否是SSH终端按钮
+    const terminalBtn = target.closest('#ssh-terminal-title-btn');
+    if (terminalBtn) {
+      console.log('🖱️ SSH终端按钮被点击');
       event.preventDefault();
       event.stopPropagation();
       openSSHTerminalWindow();
     }
   });
-  console.log('✅ SSH终端浮动按钮事件监听器已添加（事件委托方式）');
+  console.log('✅ SSH终端按钮事件监听器已添加（事件委托方式）');
 
   // 全局点击事件：清除表格选中状态
   document.addEventListener('click', (event) => {
@@ -2401,6 +2421,12 @@ function setupGlobalModalFunctions(app: LovelyResApp) {
       } else if (pageId === 'emergency-commands') {
         console.log('🚨 [PageSwitch] 初始化应急响应页面');
         emergencyPageManager.initialize();
+      } else if (pageId === 'log-analysis') {
+        console.log('📋 [PageSwitch] 初始化日志审计页面');
+        // 延迟刷新日志，确保页面已渲染完成
+        setTimeout(() => {
+          (window as any).refreshLogAnalysis();
+        }, 200);
       } else if (pageId === 'settings') {
         console.log('⚙️ [PageSwitch] 初始化设置页面');
         // 初始化设置页面
@@ -3373,6 +3399,392 @@ document.addEventListener('click', (event) => {
     default:
       console.warn('未知的菜单操作:', action);
   }
+};
+
+// ==================== 日志审计功能 ====================
+
+/**
+ * 加载日志文件列表
+ */
+async function loadLogFileList() {
+  // 检查是否在日志页面
+  const select = document.getElementById('log-file-select') as HTMLSelectElement;
+  if (!select) return;
+
+  console.log('📂 正在加载日志源列表...');
+  try {
+    const [logFiles, containers] = await Promise.all([
+      invoke('list_log_files') as Promise<any[]>,
+      invoke('docker_list_containers') as Promise<any[]>
+    ]);
+    
+    const currentValue = select.value;
+    let optionsHtml = '';
+
+    // 1. Docker 容器分组
+    if (Array.isArray(containers) && containers.length > 0) {
+      console.log('📦 获取到的容器列表:', containers);
+      optionsHtml += `<optgroup label="Docker 容器">`;
+      containers.forEach((container: any) => {
+        // 兼容不同的字段名（PascalCase 或 camelCase）
+        const id = container.Id || container.id;
+        const names = container.Names || container.names;
+        const name = container.Name || container.name;
+        const state = container.State || container.state;
+
+        if (!id) return;
+        
+        // 容器ID取前12位
+        const containerId = String(id);
+        const shortId = containerId.substring(0, 12);
+        
+        // 显示名称，去掉开头的斜杠
+        let displayName = 'Unknown';
+        if (Array.isArray(names) && names.length > 0) {
+          displayName = names[0].replace(/^\//, '');
+        } else if (name) {
+          displayName = name.replace(/^\//, '');
+        }
+        
+        // 状态图标
+        const statusIcon = state === 'running' ? '🟢' : '🔴';
+        
+        const value = `docker:${shortId}`;
+        optionsHtml += `<option value="${value}" ${value === currentValue ? 'selected' : ''}>
+          ${statusIcon} ${displayName} (${shortId})
+        </option>`;
+      });
+      optionsHtml += `</optgroup>`;
+    } else {
+       console.log('⚠️ 未获取到 Docker 容器或列表为空');
+       optionsHtml += `<optgroup label="Docker 容器"><option value="" disabled>无运行中容器</option></optgroup>`;
+    }
+
+    // 2. 系统日志分组
+    if (Array.isArray(logFiles) && logFiles.length > 0) {
+      optionsHtml += `<optgroup label="系统日志">`;
+      logFiles.forEach((file: any) => {
+        const sizeStr = file.size > 1024 * 1024 
+          ? `${(file.size / 1024 / 1024).toFixed(1)} MB` 
+          : `${(file.size / 1024).toFixed(1)} KB`;
+        // 标记最近修改的文件
+        const isRecent = Date.now() - parseInt(file.modified) * 1000 < 24 * 60 * 60 * 1000; // 24小时内
+        const recentMark = isRecent ? '🕒 ' : '';
+        
+        optionsHtml += `<option value="${file.path}" ${file.path === currentValue ? 'selected' : ''}>
+          ${recentMark}${file.name} (${sizeStr})
+        </option>`;
+      });
+      optionsHtml += `</optgroup>`;
+    }
+    
+    if (optionsHtml) {
+      select.innerHTML = optionsHtml;
+      console.log(`✅ 已加载日志源: ${logFiles.length} 个文件, ${containers.length} 个容器`);
+    }
+  } catch (error) {
+    console.error('❌ 加载日志源列表失败:', error);
+  }
+}
+
+/**
+ * 刷新日志审计页面
+ */
+(window as any).refreshLogAnalysis = async function () {
+  console.log('🔄 刷新日志审计');
+  
+  // 尝试加载文件列表（异步执行，不阻塞UI）
+  loadLogFileList();
+
+  try {
+    const logContainer = document.getElementById('log-container');
+    if (!logContainer) return;
+
+    // 显示加载状态
+    logContainer.innerHTML = `
+      <div class="loading-placeholder">
+        <div class="spinner"></div>
+        <p>加载日志中...</p>
+      </div>
+    `;
+
+    // 获取当前配置
+    const state = (window as any).logAnalysisState || {};
+    const useJournalctl = state.useJournalctl || false;
+    const logPath = state.logPath || '/var/log/auth.log';
+    const pageSize = parseInt(state.lines || '100');
+    const page = state.page || 1;
+    const filter = state.filter || '';
+    const journalUnit = state.journalUnit || '';
+    const dateFilter = state.date || '';
+
+    let result;
+    
+    if (useJournalctl) {
+      // 使用 journalctl
+      result = await invoke('read_journalctl_log', {
+        page,
+        pageSize,
+        unit: journalUnit || null,
+        filter: filter || null,
+        since: dateFilter ? `${dateFilter} 00:00:00` : null,
+        until: dateFilter ? `${dateFilter} 23:59:59` : null
+      });
+      document.getElementById('current-source')!.textContent = `journalctl${journalUnit ? ` -u ${journalUnit}` : ''}`;
+    } else if (logPath.startsWith('docker:')) {
+      // 使用 Docker 容器日志
+      const containerId = logPath.replace('docker:', '');
+      // 对于 Docker 日志，我们复用 LogAnalysisResult 结构，但需要适配
+      // 这里的 result 类型需要和 read_system_log 返回的一致
+      const logs = await invoke('docker_container_logs', {
+        containerId,
+        tail: pageSize.toString() // Docker logs API 通常接受 tail 参数
+      }) as string;
+
+      // 手动解析 Docker 日志为 LogAnalysisResult 结构
+      // Docker 日志通常格式不固定，这里做简单处理
+      const entries = logs.split('\n')
+        .filter(line => line.trim())
+        .map(line => {
+          // 尝试提取时间戳 (Docker日志可能有多种格式)
+          // 简单起见，我们把整行作为 message，level 默认为 INFO
+          return {
+            timestamp: '', // Docker API 返回的原始字符串可能包含时间戳，也可能不包含
+            level: 'INFO',
+            service: `docker:${containerId.substring(0, 8)}`,
+            message: line,
+            raw: line,
+            highlighted: false
+          };
+        });
+
+      // 简单的客户端过滤（如果需要）
+      const filteredEntries = filter 
+        ? entries.filter(e => e.message.toLowerCase().includes(filter.toLowerCase()))
+        : entries;
+
+      result = {
+        total_count: filteredEntries.length,
+        highlighted_count: 0,
+        entries: filteredEntries,
+        file_info: null
+      };
+      document.getElementById('current-source')!.textContent = `Container ${containerId.substring(0, 8)}`;
+    } else {
+      // 使用文件日志
+      result = await invoke('read_system_log', {
+        logPath,
+        page,
+        pageSize,
+        filter: filter || null,
+        dateFilter: dateFilter || null
+      });
+      const fileName = logPath.split('/').pop() || logPath;
+      document.getElementById('current-source')!.textContent = fileName;
+    }
+
+    // 更新统计信息和分页状态
+    document.getElementById('total-logs')!.textContent = result.total_count.toString();
+    
+    // 更新翻页按钮状态
+    const prevBtn = document.querySelector('.pagination-btn[title="上一页"]') as HTMLButtonElement;
+    const nextBtn = document.querySelector('.pagination-btn[title="下一页"]') as HTMLButtonElement;
+    const pageDisplay = document.querySelector('.page-display');
+    
+    if (prevBtn) prevBtn.disabled = page <= 1;
+    if (nextBtn) nextBtn.disabled = result.entries.length < pageSize; // 如果返回条数少于pageSize，说明是最后一页
+    if (pageDisplay) pageDisplay.textContent = `第 ${page} 页`;
+
+    // 渲染日志条目
+    if (result.entries && result.entries.length > 0) {
+      logContainer.innerHTML = renderLogEntries(result.entries);
+    } else {
+      logContainer.innerHTML = `
+        <div class="empty-state">
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="currentColor">
+            <path d="M39 8H9c-1.1 0-2 .9-2 2v28c0 1.1.9 2 2 2h30c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-2 28H11V12h26v24z"/>
+          </svg>
+          <p>没有找到日志记录</p>
+          <small>请检查日志文件路径或调整过滤条件</small>
+        </div>
+      `;
+    }
+
+  } catch (error) {
+    console.error('❌ 刷新日志失败:', error);
+    const logContainer = document.getElementById('log-container');
+    if (logContainer) {
+      logContainer.innerHTML = `
+        <div class="error-state">
+          <p>加载日志失败</p>
+          <small>${error}</small>
+        </div>
+      `;
+    }
+  }
+};
+
+/**
+ * 渲染日志条目 - 紧凑模式
+ */
+function renderLogEntries(entries: any[]): string {
+  return `
+    <div class="log-entries">
+      ${entries.map(entry => {
+        const levelClass = getLevelClass(entry.level);
+        const highlightClass = entry.highlighted ? 'highlighted' : '';
+        
+        // 简化时间戳显示
+        let displayTime = entry.timestamp || '-';
+        if (displayTime.length > 19) displayTime = displayTime.substring(0, 19);
+
+        // 清理消息内容，去除首尾空白，防止多余换行
+        const cleanMessage = (entry.message || '').trim();
+
+        return `
+          <div class="log-entry ${levelClass} ${highlightClass}">
+            <div class="log-timestamp" title="${entry.timestamp}">${displayTime}</div>
+            <div class="log-level ${levelClass}">${entry.level}</div>
+            <div class="log-message">${entry.highlighted ? '<span class="log-marker">!</span>' : ''}${escapeHtml(cleanMessage)}</div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+/**
+ * 获取日志级别CSS类
+ */
+function getLevelClass(level: string): string {
+  const levelUpper = level.toUpperCase();
+  if (levelUpper.includes('ERROR') || levelUpper.includes('FAIL')) return 'level-error';
+  if (levelUpper.includes('WARN')) return 'level-warn';
+  if (levelUpper.includes('INFO')) return 'level-info';
+  if (levelUpper.includes('DEBUG')) return 'level-debug';
+  return 'level-info';
+}
+
+/**
+ * HTML转义
+ */
+function escapeHtml(text: string): string {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+/**
+ * 切换日志来源
+ */
+(window as any).switchLogSource = function (source: string) {
+  (window as any).logAnalysisState = (window as any).logAnalysisState || {};
+  (window as any).logAnalysisState.useJournalctl = source === 'journalctl';
+  (window as any).logAnalysisState.page = 1; // 重置页码
+  
+  // 重新渲染控制面板
+  const app = (window as any).app;
+  if (app) {
+    const workspaceContent = document.querySelector('.workspace-content');
+    if (workspaceContent) {
+      const renderer = app.getStateManager().getUIRenderer();
+      // 更新渲染器内部状态
+      renderer['logAnalysisRenderer'].setUseJournalctl(source === 'journalctl');
+      workspaceContent.innerHTML = renderer['renderLogAnalysisPage']();
+      
+      // 自动刷新日志
+      setTimeout(() => {
+        (window as any).refreshLogAnalysis();
+      }, 100);
+    }
+  }
+};
+
+/**
+ * 更新日志路径
+ */
+(window as any).updateLogPath = function (path: string) {
+  (window as any).logAnalysisState = (window as any).logAnalysisState || {};
+  (window as any).logAnalysisState.logPath = path;
+  (window as any).logAnalysisState.page = 1;
+  (window as any).refreshLogAnalysis();
+};
+
+/**
+ * 更新显示行数
+ */
+(window as any).updateLogLines = function (lines: string) {
+  (window as any).logAnalysisState = (window as any).logAnalysisState || {};
+  (window as any).logAnalysisState.lines = lines;
+  (window as any).logAnalysisState.page = 1; // 重置页码
+  (window as any).refreshLogAnalysis();
+};
+
+/**
+ * 更新过滤器
+ */
+(window as any).updateLogFilter = function (filter: string) {
+  (window as any).logAnalysisState = (window as any).logAnalysisState || {};
+  (window as any).logAnalysisState.filter = filter;
+  (window as any).logAnalysisState.page = 1;
+  (window as any).refreshLogAnalysis();
+};
+
+/**
+ * 更新日期筛选
+ */
+(window as any).updateLogDate = function (date: string) {
+  (window as any).logAnalysisState = (window as any).logAnalysisState || {};
+  (window as any).logAnalysisState.date = date;
+  (window as any).logAnalysisState.page = 1;
+  (window as any).refreshLogAnalysis();
+};
+
+/**
+ * 切换页码
+ */
+(window as any).changeLogPage = function (delta: number) {
+  (window as any).logAnalysisState = (window as any).logAnalysisState || {};
+  let currentPage = (window as any).logAnalysisState.page || 1;
+  currentPage += delta;
+  if (currentPage < 1) currentPage = 1;
+  
+  (window as any).logAnalysisState.page = currentPage;
+  
+  // 更新渲染器状态以保持同步
+  const app = (window as any).app;
+  if (app) {
+    const renderer = app.getStateManager().getUIRenderer();
+    // 只是简单更新显示，不需要完全重渲染
+    const pageDisplay = document.querySelector('.page-display');
+    if (pageDisplay) pageDisplay.textContent = `第 ${currentPage} 页`;
+  }
+  
+  (window as any).refreshLogAnalysis();
+};
+
+/**
+ * 清除过滤器
+ */
+(window as any).clearLogFilter = function () {
+  const input = document.getElementById('log-filter-input') as HTMLInputElement;
+  if (input) {
+    input.value = '';
+  }
+  (window as any).logAnalysisState = (window as any).logAnalysisState || {};
+  (window as any).logAnalysisState.filter = '';
+  (window as any).logAnalysisState.page = 1;
+  (window as any).refreshLogAnalysis();
+};
+
+/**
+ * 更新 journal 单元
+ */
+(window as any).updateJournalUnit = function (unit: string) {
+  (window as any).logAnalysisState = (window as any).logAnalysisState || {};
+  (window as any).logAnalysisState.journalUnit = unit;
+  (window as any).logAnalysisState.page = 1;
+  (window as any).refreshLogAnalysis();
 };
 
 // 启动应用

@@ -1,230 +1,304 @@
 import { K8sPod, K8sDeployment, K8sService, K8sNode, K8sClusterStats } from './types';
+import { sshConnectionManager } from '../remote/sshConnectionManager';
+
+// Define interfaces for kubectl JSON output
+interface KubectlList<T> {
+    items: T[];
+}
+
+interface KubectlMetadata {
+    name: string;
+    namespace: string;
+    creationTimestamp: string;
+    labels?: Record<string, string>;
+    uid: string;
+}
+
+interface KubectlPod {
+    metadata: KubectlMetadata;
+    status: {
+        phase: string;
+        podIP?: string;
+        containerStatuses?: Array<{
+            name: string;
+            image: string;
+            ready: boolean;
+            restartCount: number;
+        }>;
+    };
+    spec: {
+        nodeName?: string;
+        containers: Array<{
+            name: string;
+            image: string;
+        }>;
+    };
+}
+
+interface KubectlDeployment {
+    metadata: KubectlMetadata;
+    status: {
+        replicas?: number;
+        availableReplicas?: number;
+        updatedReplicas?: number;
+        conditions?: Array<{
+            type: string;
+            status: string;
+        }>;
+    };
+    spec: {
+        replicas: number;
+    };
+}
+
+interface KubectlService {
+    metadata: KubectlMetadata;
+    spec: {
+        type: string;
+        clusterIP: string;
+        externalIPs?: string[];
+        ports?: Array<{
+            name?: string;
+            port: number;
+            targetPort: number | string;
+            protocol: string;
+        }>;
+    };
+}
+
+interface KubectlNode {
+    metadata: KubectlMetadata;
+    status: {
+        conditions: Array<{
+            type: string;
+            status: string;
+        }>;
+        nodeInfo: {
+            kubeletVersion: string;
+        };
+        addresses: Array<{
+            type: string;
+            address: string;
+        }>;
+        capacity: {
+            cpu: string;
+            memory: string;
+            pods: string;
+        };
+        allocatable: {
+            cpu: string;
+            memory: string;
+            pods: string;
+        };
+    };
+}
 
 export class KubernetesManager {
-    private mockPods: K8sPod[] = [];
-    private mockDeployments: K8sDeployment[] = [];
-    private mockServices: K8sService[] = [];
-    private mockNodes: K8sNode[] = [];
-
     constructor() {
-        this.initializeMockData();
+        // No initialization needed for real data
     }
 
-    private initializeMockData() {
-        // Mock Nodes
-        this.mockNodes = [
-            {
-                name: 'node-1',
-                status: 'Ready',
-                roles: ['control-plane', 'master'],
-                version: 'v1.26.3',
-                addresses: [{ type: 'InternalIP', address: '192.168.1.10' }],
-                capacity: { cpu: '4', memory: '8Gi', pods: '110' },
-                allocatable: { cpu: '3.8', memory: '7.5Gi', pods: '110' }
-            },
-            {
-                name: 'node-2',
-                status: 'Ready',
-                roles: ['worker'],
-                version: 'v1.26.3',
-                addresses: [{ type: 'InternalIP', address: '192.168.1.11' }],
-                capacity: { cpu: '8', memory: '16Gi', pods: '110' },
-                allocatable: { cpu: '7.6', memory: '15Gi', pods: '110' }
-            },
-            {
-                name: 'node-3',
-                status: 'Ready',
-                roles: ['worker'],
-                version: 'v1.26.3',
-                addresses: [{ type: 'InternalIP', address: '192.168.1.12' }],
-                capacity: { cpu: '8', memory: '16Gi', pods: '110' },
-                allocatable: { cpu: '7.6', memory: '15Gi', pods: '110' }
-            }
-        ];
+    private async executeKubectl(command: string): Promise<any> {
+        if (!sshConnectionManager.isConnected()) {
+            console.warn('SSH not connected, returning empty data for K8s');
+            return null;
+        }
 
-        // Mock Deployments
-        this.mockDeployments = [
-            {
-                id: 'd-1',
-                name: 'nginx-deployment',
-                namespace: 'default',
-                creationTimestamp: new Date(Date.now() - 86400000 * 5).toISOString(),
-                labels: { app: 'nginx' },
-                replicas: 3,
-                availableReplicas: 3,
-                updatedReplicas: 3,
-                conditions: ['Available', 'Progressing']
-            },
-            {
-                id: 'd-2',
-                name: 'redis-cache',
-                namespace: 'default',
-                creationTimestamp: new Date(Date.now() - 86400000 * 2).toISOString(),
-                labels: { app: 'redis' },
-                replicas: 1,
-                availableReplicas: 1,
-                updatedReplicas: 1,
-                conditions: ['Available']
-            },
-            {
-                id: 'd-3',
-                name: 'backend-api',
-                namespace: 'production',
-                creationTimestamp: new Date(Date.now() - 86400000 * 10).toISOString(),
-                labels: { app: 'backend', tier: 'api' },
-                replicas: 5,
-                availableReplicas: 4,
-                updatedReplicas: 5,
-                conditions: ['Available', 'ReplicaFailure']
-            }
-        ];
+        try {
+            // Use dashboard command to avoid polluting terminal history
+            const result = await (window as any).__TAURI__.core.invoke('ssh_execute_dashboard_command_direct', {
+                command: `${command} -o json`
+            });
 
-        // Mock Pods
-        this.mockPods = [
-            {
-                id: 'p-1',
-                name: 'nginx-deployment-5c68f8c-abcde',
-                namespace: 'default',
-                creationTimestamp: new Date(Date.now() - 3600000).toISOString(),
-                labels: { app: 'nginx' },
-                status: 'Running',
-                node: 'node-2',
-                ip: '10.244.1.5',
-                restarts: 0,
-                containers: [{ name: 'nginx', image: 'nginx:1.21', ready: true, restarts: 0 }]
-            },
-            {
-                id: 'p-2',
-                name: 'nginx-deployment-5c68f8c-fghij',
-                namespace: 'default',
-                creationTimestamp: new Date(Date.now() - 3500000).toISOString(),
-                labels: { app: 'nginx' },
-                status: 'Running',
-                node: 'node-3',
-                ip: '10.244.2.8',
-                restarts: 1,
-                containers: [{ name: 'nginx', image: 'nginx:1.21', ready: true, restarts: 1 }]
-            },
-            {
-                id: 'p-3',
-                name: 'nginx-deployment-5c68f8c-klmno',
-                namespace: 'default',
-                creationTimestamp: new Date(Date.now() - 3400000).toISOString(),
-                labels: { app: 'nginx' },
-                status: 'Running',
-                node: 'node-2',
-                ip: '10.244.1.6',
-                restarts: 0,
-                containers: [{ name: 'nginx', image: 'nginx:1.21', ready: true, restarts: 0 }]
-            },
-            {
-                id: 'p-4',
-                name: 'redis-cache-7d9cf9b-xyz12',
-                namespace: 'default',
-                creationTimestamp: new Date(Date.now() - 7200000).toISOString(),
-                labels: { app: 'redis' },
-                status: 'Running',
-                node: 'node-3',
-                ip: '10.244.2.3',
-                restarts: 0,
-                containers: [{ name: 'redis', image: 'redis:6.2', ready: true, restarts: 0 }]
-            },
-            {
-                id: 'p-5',
-                name: 'backend-api-8e2ad1-99887',
-                namespace: 'production',
-                creationTimestamp: new Date(Date.now() - 1800000).toISOString(),
-                labels: { app: 'backend' },
-                status: 'Pending',
-                node: 'node-2',
-                ip: '',
-                restarts: 0,
-                containers: [{ name: 'api', image: 'my-app/api:v2', ready: false, restarts: 0 }]
+            if (result.exit_code !== 0) {
+                console.error(`Kubectl command failed: ${command}`, result.output);
+                return null;
             }
-        ];
 
-        // Mock Services
-        this.mockServices = [
-            {
-                id: 's-1',
-                name: 'nginx-service',
-                namespace: 'default',
-                creationTimestamp: new Date(Date.now() - 86400000 * 5).toISOString(),
-                labels: { app: 'nginx' },
-                type: 'LoadBalancer',
-                clusterIP: '10.96.0.10',
-                externalIPs: ['203.0.113.5'],
-                ports: [{ name: 'http', port: 80, targetPort: 80, protocol: 'TCP' }]
-            },
-            {
-                id: 's-2',
-                name: 'redis-internal',
-                namespace: 'default',
-                creationTimestamp: new Date(Date.now() - 86400000 * 2).toISOString(),
-                labels: { app: 'redis' },
-                type: 'ClusterIP',
-                clusterIP: '10.96.0.15',
-                externalIPs: [],
-                ports: [{ name: 'redis', port: 6379, targetPort: 6379, protocol: 'TCP' }]
-            },
-            {
-                id: 's-3',
-                name: 'backend-api-svc',
-                namespace: 'production',
-                creationTimestamp: new Date(Date.now() - 86400000 * 10).toISOString(),
-                labels: { app: 'backend' },
-                type: 'NodePort',
-                clusterIP: '10.96.0.20',
-                externalIPs: [],
-                ports: [{ name: 'http', port: 8080, targetPort: 8080, protocol: 'TCP' }]
-            }
-        ];
+            return JSON.parse(result.output);
+        } catch (error) {
+            console.error(`Failed to execute kubectl command: ${command}`, error);
+            return null;
+        }
     }
 
     public async getPods(namespace?: string): Promise<K8sPod[]> {
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 300));
-        if (namespace) {
-            return this.mockPods.filter(p => p.namespace === namespace);
-        }
-        return this.mockPods;
+        const cmd = namespace
+            ? `kubectl get pods -n ${namespace}`
+            : `kubectl get pods --all-namespaces`;
+
+        const data = await this.executeKubectl(cmd) as KubectlList<KubectlPod>;
+        if (!data || !data.items) return [];
+
+        return data.items.map(item => ({
+            id: item.metadata.uid,
+            name: item.metadata.name,
+            namespace: item.metadata.namespace,
+            creationTimestamp: item.metadata.creationTimestamp,
+            labels: item.metadata.labels || {},
+            status: (item.status.phase || 'Unknown') as K8sPod['status'],
+            node: item.spec.nodeName || 'N/A',
+            ip: item.status.podIP || '',
+            restarts: item.status.containerStatuses?.reduce((sum, c) => sum + c.restartCount, 0) || 0,
+            containers: item.status.containerStatuses?.map(c => ({
+                name: c.name,
+                image: c.image,
+                ready: c.ready,
+                restarts: c.restartCount
+            })) || []
+        }));
     }
 
     public async getDeployments(namespace?: string): Promise<K8sDeployment[]> {
-        await new Promise(resolve => setTimeout(resolve, 300));
-        if (namespace) {
-            return this.mockDeployments.filter(d => d.namespace === namespace);
-        }
-        return this.mockDeployments;
+        const cmd = namespace
+            ? `kubectl get deployments -n ${namespace}`
+            : `kubectl get deployments --all-namespaces`;
+
+        const data = await this.executeKubectl(cmd) as KubectlList<KubectlDeployment>;
+        if (!data || !data.items) return [];
+
+        return data.items.map(item => {
+            const conditions = item.status.conditions
+                ?.filter(c => c.status === 'True')
+                .map(c => c.type) || [];
+
+            return {
+                id: item.metadata.uid,
+                name: item.metadata.name,
+                namespace: item.metadata.namespace,
+                creationTimestamp: item.metadata.creationTimestamp,
+                labels: item.metadata.labels || {},
+                replicas: item.spec.replicas || 0,
+                availableReplicas: item.status.availableReplicas || 0,
+                updatedReplicas: item.status.updatedReplicas || 0,
+                conditions: conditions
+            };
+        });
     }
 
     public async getServices(namespace?: string): Promise<K8sService[]> {
-        await new Promise(resolve => setTimeout(resolve, 300));
-        if (namespace) {
-            return this.mockServices.filter(s => s.namespace === namespace);
-        }
-        return this.mockServices;
+        const cmd = namespace
+            ? `kubectl get services -n ${namespace}`
+            : `kubectl get services --all-namespaces`;
+
+        const data = await this.executeKubectl(cmd) as KubectlList<KubectlService>;
+        if (!data || !data.items) return [];
+
+        return data.items.map(item => ({
+            id: item.metadata.uid,
+            name: item.metadata.name,
+            namespace: item.metadata.namespace,
+            creationTimestamp: item.metadata.creationTimestamp,
+            labels: item.metadata.labels || {},
+            type: (item.spec.type || 'ClusterIP') as K8sService['type'],
+            clusterIP: item.spec.clusterIP,
+            externalIPs: item.spec.externalIPs || [],
+            ports: item.spec.ports?.map(p => ({
+                name: p.name || '',
+                port: p.port,
+                targetPort: p.targetPort,
+                protocol: (p.protocol || 'TCP') as 'TCP' | 'UDP' | 'SCTP'
+            })) || []
+        }));
     }
 
     public async getNodes(): Promise<K8sNode[]> {
-        await new Promise(resolve => setTimeout(resolve, 300));
-        return this.mockNodes;
+        const data = await this.executeKubectl(`kubectl get nodes`) as KubectlList<KubectlNode>;
+        if (!data || !data.items) return [];
+
+        return data.items.map(item => {
+            const readyCondition = item.status.conditions.find(c => c.type === 'Ready');
+            const status = (readyCondition?.status === 'True' ? 'Ready' : 'NotReady') as K8sNode['status'];
+
+            // Infer roles from labels (common convention)
+            const roles = Object.keys(item.metadata.labels || {})
+                .filter(k => k.startsWith('node-role.kubernetes.io/'))
+                .map(k => k.split('/')[1]);
+
+            return {
+                name: item.metadata.name,
+                status: status,
+                roles: roles.length > 0 ? roles : ['worker'], // Default to worker if no specific role label
+                version: item.status.nodeInfo.kubeletVersion,
+                addresses: item.status.addresses,
+                capacity: item.status.capacity,
+                allocatable: item.status.allocatable
+            };
+        });
     }
 
     public async getClusterStats(): Promise<K8sClusterStats> {
-        await new Promise(resolve => setTimeout(resolve, 300));
-        const nodes = this.mockNodes;
-        const pods = this.mockPods;
-        
+        if (!sshConnectionManager.isConnected()) {
+            return {
+                totalPods: 0,
+                runningPods: 0,
+                totalDeployments: 0,
+                totalServices: 0,
+                totalNodes: 0,
+                healthyNodes: 0,
+                cpuUsage: 0,
+                memoryUsage: 0
+            };
+        }
+
+        // Parallel execution for better performance
+        const [pods, deployments, services, nodes] = await Promise.all([
+            this.getPods(),
+            this.getDeployments(),
+            this.getServices(),
+            this.getNodes()
+        ]);
+
+        const runningPods = pods.filter(p => p.status === 'Running').length;
+        const healthyNodes = nodes.filter(n => n.status === 'Ready').length;
+
+        let cpuUsage = 0;
+        let memoryUsage = 0;
+
+        try {
+            // kubectl top nodes --no-headers
+            // Output: node-name   cpu(cores)   cpu%   memory(bytes)   memory%
+            const topResult = await (window as any).__TAURI__.core.invoke('ssh_execute_dashboard_command_direct', {
+                command: `kubectl top nodes --no-headers`
+            });
+
+            if (topResult.exit_code === 0 && topResult.output) {
+                const lines = topResult.output.trim().split('\n');
+                let totalCpuPercent = 0;
+                let totalMemPercent = 0;
+                let count = 0;
+
+                lines.forEach((line: string) => {
+                    const parts = line.trim().split(/\s+/);
+                    if (parts.length >= 5) {
+                        const cpu = parseInt(parts[2].replace('%', ''));
+                        const mem = parseInt(parts[4].replace('%', ''));
+                        if (!isNaN(cpu) && !isNaN(mem)) {
+                            totalCpuPercent += cpu;
+                            totalMemPercent += mem;
+                            count++;
+                        }
+                    }
+                });
+
+                if (count > 0) {
+                    cpuUsage = Math.round(totalCpuPercent / count);
+                    memoryUsage = Math.round(totalMemPercent / count);
+                }
+            }
+        } catch (e) {
+            // Ignore errors from top (metrics server might not be installed)
+        }
+
         return {
             totalPods: pods.length,
-            runningPods: pods.filter(p => p.status === 'Running').length,
-            totalDeployments: this.mockDeployments.length,
-            totalServices: this.mockServices.length,
+            runningPods: runningPods,
+            totalDeployments: deployments.length,
+            totalServices: services.length,
             totalNodes: nodes.length,
-            healthyNodes: nodes.filter(n => n.status === 'Ready').length,
-            cpuUsage: 45, // Mock
-            memoryUsage: 62 // Mock
+            healthyNodes: healthyNodes,
+            cpuUsage: cpuUsage,
+            memoryUsage: memoryUsage
         };
     }
 }

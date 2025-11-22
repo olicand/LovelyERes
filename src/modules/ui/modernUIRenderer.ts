@@ -8,6 +8,7 @@ import type { AppState } from '../core/app';
 import { DashboardRenderer } from './dashboardRenderer';
 import { KubernetesRenderer } from './kubernetesRenderer';
 import { SftpContextMenuRenderer } from './sftpContextMenu';
+import { LogAnalysisRenderer } from './logAnalysisRenderer';
 import { emergencyCategories } from '../emergency/commands';
 import {
   List,
@@ -49,7 +50,8 @@ import {
   Memory,
   Speed,
   LinkCloud,
-  BookOpen
+  BookOpen,
+  Log
 } from '@icon-park/svg';
 
 // 添加系统信息页面的样式
@@ -131,6 +133,7 @@ export class ModernUIRenderer {
   private state: AppState;
   private dashboardRenderer: DashboardRenderer;
   public kubernetesRenderer: KubernetesRenderer;
+  private logAnalysisRenderer: LogAnalysisRenderer;
 
   public sftpContextMenuRenderer: SftpContextMenuRenderer;
 
@@ -139,6 +142,7 @@ export class ModernUIRenderer {
     this.state = stateManager.getState();
     this.dashboardRenderer = new DashboardRenderer();
     this.kubernetesRenderer = new KubernetesRenderer();
+    this.logAnalysisRenderer = new LogAnalysisRenderer();
     this.sftpContextMenuRenderer = new SftpContextMenuRenderer();
 
     // 注入系统信息页面样式
@@ -285,12 +289,15 @@ export class ModernUIRenderer {
             🐛 Debug
           </button>
           
-          <!-- 设置按钮 -->
-          ${this.renderUserAvatar()}
-          
           <button class="theme-toggle-btn modern-btn secondary" style="padding: 6px 12px; font-size: 11px; margin-right: var(--spacing-sm);" title="切换到${nextThemeConfig.name}主题">
             ${currentThemeConfig.icon} ${currentThemeConfig.name}
           </button>
+
+          <!-- SSH终端按钮 -->
+          ${this.renderSSHTerminalTitleButton()}
+
+          <!-- 设置按钮 -->
+          ${this.renderUserAvatar()}
 
           ${!isMac ? `
           <div class="window-controls">
@@ -433,6 +440,12 @@ export class ModernUIRenderer {
         icon: LinkCloud({ theme: 'outline', size: '18', fill: 'currentColor' }),
         title: 'K8s管理',
         active: currentPage === 'kubernetes'
+      },
+      {
+        id: 'log-analysis',
+        icon: Log({ theme: 'outline', size: '18', fill: 'currentColor' }),
+        title: '日志审计',
+        active: currentPage === 'log-analysis'
       }
     ];
 
@@ -665,6 +678,8 @@ export class ModernUIRenderer {
         return this.renderQuickDetectionPage();
       case 'kubernetes':
         return this.renderKubernetesPage();
+      case 'log-analysis':
+        return this.renderLogAnalysisPage();
       case 'settings':
         return this.renderSettingsPage();
       case 'dashboard':
@@ -2113,6 +2128,13 @@ export class ModernUIRenderer {
   }
 
   /**
+   * 渲染日志审计页面
+   */
+  private renderLogAnalysisPage(): string {
+    return this.logAnalysisRenderer.render();
+  }
+
+  /**
    * 渲染应急命令页面
    */
   private renderEmergencyCommandsPage(): string {
@@ -2685,7 +2707,7 @@ export class ModernUIRenderer {
         </div>
 
         <div class="status-right">
-          <span>LovelyRes v0.53.1</span>
+          <span>LovelyRes v0.54.0</span>
         </div>
       </div>
     `;
@@ -3367,17 +3389,18 @@ export class ModernUIRenderer {
   }
 
   /**
-   * 渲染SSH终端浮动按钮
+   * 渲染SSH终端标题栏按钮
    */
-  renderSSHTerminalFloatingButton(): string {
+  renderSSHTerminalTitleButton(): string {
     return `
-      <div class="ssh-terminal-floating-btn" id="ssh-terminal-floating-btn" title="打开SSH终端">
-        <svg width="28" height="28" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="4" y="8" width="40" height="32" rx="2" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="4" stroke-linejoin="bevel"/>
-          <path d="M12 18L19 24L12 30" stroke="#2F88FF" stroke-width="4" stroke-linecap="round" stroke-linejoin="bevel"/>
-          <path d="M23 32H36" stroke="#2F88FF" stroke-width="4" stroke-linecap="round" stroke-linejoin="bevel"/>
+      <button id="ssh-terminal-title-btn" class="modern-btn secondary" style="padding: 6px 12px; font-size: 11px; margin-right: var(--spacing-sm); display: flex; align-items: center; gap: 6px;" title="打开SSH终端">
+        <svg width="14" height="14" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="8" width="40" height="32" rx="2" fill="none" stroke="currentColor" stroke-width="4" stroke-linejoin="bevel"/>
+          <path d="M12 18L19 24L12 30" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="bevel"/>
+          <path d="M23 32H36" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="bevel"/>
         </svg>
-      </div>
+        终端
+      </button>
     `;
   }
 }

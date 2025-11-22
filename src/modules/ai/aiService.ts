@@ -454,6 +454,92 @@ ${serverInfo ? `服务器：${serverInfo}` : ''}
   }
 
   /**
+   * 流式解释系统日志
+   */
+  public async explainLogStream(
+    logContent: string,
+    context?: string,
+    onChunk?: (text: string) => void,
+    onComplete?: (fullText: string) => void
+  ): Promise<void> {
+    if (!this.isConfigured()) {
+      throw new Error('请先配置 AI 服务（设置 -> AI 配置）');
+    }
+
+    const { url, headers, model } = this.getAPIEndpoint();
+
+    const systemPrompt = `你是一位资深的 Linux 系统日志分析专家。请解释用户提供的系统日志。
+1. 解释日志的含义，发生了什么事件。
+2. 分析日志级别（如 Error, Warning）及其严重性。
+3. 如果是错误或警告，给出可能的原因和排查建议。
+4. 使用中文回答，保持简洁专业。`;
+
+    const userPrompt = `请解释这条系统日志：
+${logContent}
+${context ? `\n上下文信息：${context}` : ''}`;
+
+    try {
+      let fullText = '';
+
+      const requestBody = {
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.7,
+        max_tokens: 1000,
+        stream: true,
+      };
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`AI API 请求失败: ${response.status} - ${errorText}`);
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) throw new Error('无法获取响应流');
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n').filter(line => line.trim().startsWith('data:'));
+
+        for (const line of lines) {
+          const data = line.replace(/^data: /, '');
+          if (data === '[DONE]') continue;
+
+          try {
+            const parsed = JSON.parse(data);
+            const text = parsed.choices?.[0]?.delta?.content || parsed.delta?.text || '';
+            if (text) {
+              fullText += text;
+              onChunk?.(text);
+            }
+          } catch (e) {
+            // 忽略解析错误
+          }
+        }
+      }
+
+      onComplete?.(fullText);
+    } catch (error) {
+      console.error('❌ AI 日志解释失败:', error);
+      throw error;
+    }
+  }
+
+  /**
    * 解析 AI 返回的解决方案
    */
   private parseSolution(content: string): AISolution {

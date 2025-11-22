@@ -1,6 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
 import * as IconPark from '@icon-park/svg'
-import { vipGuard } from '../auth/vipGuard'
 
 /**
  * 防火墙规则右键菜单管理器
@@ -618,10 +617,6 @@ export class FirewallContextMenu {
   }) {
     if (!this.contextMenu) return
 
-    // VIP 权限检查
-    if (!vipGuard.requireVIP('防火墙规则右键菜单')) {
-      return
-    }
 
     this.currentRule = rule
 
@@ -900,10 +895,6 @@ export class FirewallContextMenu {
    * 使用AI解释当前内容
    */
   private async explainWithAI() {
-    // VIP 权限检查
-    if (!vipGuard.requireVIP('AI 解释功能')) {
-      return
-    }
 
     const contentEl = document.getElementById('firewall-modal-content')
     const explanationEl = document.getElementById('firewall-ai-explanation')

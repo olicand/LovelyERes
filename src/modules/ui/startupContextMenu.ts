@@ -1,6 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
 import * as IconPark from '@icon-park/svg'
-import { vipGuard } from '../auth/vipGuard'
 
 /**
  * 自启动项右键菜单管理器
@@ -597,10 +596,6 @@ export class StartupContextMenu {
   }) {
     if (!this.contextMenu) return
 
-    // VIP 权限检查
-    if (!vipGuard.requireVIP('自启动项右键菜单')) {
-      return
-    }
 
     this.currentStartup = startup
 
@@ -902,9 +897,6 @@ export class StartupContextMenu {
    * 使用AI解释当前内容
    */
   private async explainWithAI() {
-    if (!vipGuard.requireVIP('AI 解释功能')) {
-      return
-    }
 
     const contentEl = document.getElementById('startup-modal-content')
     const explanationEl = document.getElementById('startup-ai-explanation')

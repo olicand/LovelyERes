@@ -1,6 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
 import * as IconPark from '@icon-park/svg'
-import { vipGuard } from '../auth/vipGuard'
 
 /**
  * 网络连接右键菜单管理器
@@ -640,10 +639,6 @@ export class NetworkContextMenu {
   }) {
     if (!this.contextMenu) return
 
-    // VIP 权限检查
-    if (!vipGuard.requireVIP('网络连接右键菜单')) {
-      return
-    }
 
     this.currentConnection = connection
 
@@ -961,10 +956,6 @@ export class NetworkContextMenu {
    * 使用AI解释当前内容
    */
   private async explainWithAI() {
-    // VIP 权限检查
-    if (!vipGuard.requireVIP('AI 解释功能')) {
-      return
-    }
 
     const contentEl = document.getElementById('network-modal-content')
     const explanationEl = document.getElementById('network-ai-explanation')

@@ -374,7 +374,6 @@ import { FitAddon } from 'xterm-addon-fit'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { commandHintsManager, type CommandHint } from '../modules/ssh/commandHints'
-import { vipGuard } from '../modules/auth/vipGuard'
 
 interface TerminalInstance {
   id: string
@@ -1426,10 +1425,6 @@ const handleKeydown = (event: KeyboardEvent) => {
 const toggleAIInput = () => {
   console.log('🔄 toggleAIInput 被调用，当前状态:', showAIInput.value)
 
-  // VIP 权限检查（仅在打开时检查）
-  if (!showAIInput.value && !vipGuard.requireVIP('AI 助手')) {
-    return
-  }
 
   showAIInput.value = !showAIInput.value
   console.log('🔄 切换后状态:', showAIInput.value)
@@ -1914,12 +1909,6 @@ const pasteFromClipboard = async () => {
 }
 
 const sendSelectionToAI = async () => {
-  // VIP 权限检查
-  if (!vipGuard.requireVIP('AI 助手')) {
-    showContextMenu.value = false
-    return
-  }
-
   if (selectedText.value) {
     // 设置选中内容提示
     selectedContentHint.value = "已划选内容"

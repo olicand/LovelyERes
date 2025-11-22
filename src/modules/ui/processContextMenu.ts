@@ -4,7 +4,6 @@
 
 import { invoke } from '@tauri-apps/api/core'
 import * as IconPark from '@icon-park/svg'
-import { vipGuard } from '../auth/vipGuard'
 
 export class ProcessContextMenu {
   private contextMenu: HTMLElement | null = null
@@ -671,10 +670,6 @@ export class ProcessContextMenu {
    * 使用AI解释当前内容
    */
   private async explainWithAI() {
-    // VIP 权限检查
-    if (!vipGuard.requireVIP('AI 解释功能')) {
-      return
-    }
 
     const contentEl = document.getElementById('modal-content')
     const explanationEl = document.getElementById('ai-explanation')
@@ -849,10 +844,6 @@ ${content}
   public async showContextMenu(x: number, y: number, pid: string) {
     if (!this.contextMenu) return
 
-    // VIP 权限检查
-    if (!vipGuard.requireVIP('进程右键菜单')) {
-      return
-    }
 
     this.currentPid = pid
 

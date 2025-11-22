@@ -1,6 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
 import * as IconPark from '@icon-park/svg'
-import { vipGuard } from '../auth/vipGuard'
 
 /**
  * 计划任务右键菜单管理器
@@ -545,10 +544,6 @@ export class CronContextMenu {
   }) {
     if (!this.contextMenu) return
 
-    // VIP 权限检查
-    if (!vipGuard.requireVIP('计划任务右键菜单')) {
-      return
-    }
 
     this.currentCron = cron
 
@@ -774,9 +769,6 @@ export class CronContextMenu {
    * 使用AI解释当前内容
    */
   private async explainWithAI() {
-    if (!vipGuard.requireVIP('AI 解释功能')) {
-      return
-    }
 
     const contentEl = document.getElementById('cron-modal-content')
     const explanationEl = document.getElementById('cron-ai-explanation')

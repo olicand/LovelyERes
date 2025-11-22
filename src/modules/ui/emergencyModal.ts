@@ -3,7 +3,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import * as IconPark from '@icon-park/svg'
 import { CommandHistoryManager } from '../utils/commandHistoryManager'
-import { vipGuard } from '../auth/vipGuard'
 
 export class EmergencyResultModal {
   private modal: HTMLElement | null = null;
@@ -402,10 +401,6 @@ export class EmergencyResultModal {
    * 使用AI解释当前内容
    */
   private async explainWithAI(): Promise<void> {
-    // VIP 权限检查
-    if (!vipGuard.requireVIP('AI 解释功能')) {
-      return
-    }
 
     const aiExplanationEl = document.getElementById('em-modal-ai-explanation');
     const aiContentEl = document.getElementById('em-modal-ai-explanation-content');

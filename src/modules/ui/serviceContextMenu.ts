@@ -1,6 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
 import * as IconPark from '@icon-park/svg'
-import { vipGuard } from '../auth/vipGuard'
 
 /**
  * 系统服务右键菜单管理器
@@ -595,10 +594,6 @@ export class ServiceContextMenu {
   async showContextMenu(x: number, y: number, serviceName: string) {
     if (!this.contextMenu) return
 
-    // VIP 权限检查
-    if (!vipGuard.requireVIP('系统服务右键菜单')) {
-      return
-    }
 
     this.currentService = serviceName
 
@@ -871,9 +866,6 @@ export class ServiceContextMenu {
    * 使用AI解释当前内容
    */
   private async explainWithAI() {
-    if (!vipGuard.requireVIP('AI 解释功能')) {
-      return
-    }
 
     const contentEl = document.getElementById('service-modal-content')
     const explanationEl = document.getElementById('service-ai-explanation')

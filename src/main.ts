@@ -56,6 +56,7 @@ import { sshConnectionDialog } from './modules/ui/sshConnectionDialog';
 import { sshTerminalManager } from './modules/ssh/sshTerminalManager';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import './css/base.css';
+import './css/dropdowns.css';
 import 'xterm/css/xterm.css';
 
 /**
@@ -956,7 +957,7 @@ window.addEventListener('unhandledrejection', (event) => {
   // 创建通知元素
   const notification = document.createElement('div');
   notification.className = 'modern-notification';
-  
+
   // 使用 CSS 变量进行主题适配
   notification.style.cssText = `
     width: 100%;
@@ -1154,13 +1155,13 @@ function setupGlobalModalFunctions(app: LovelyResApp) {
     if (modal) {
       // 先设置为 flex 但透明
       modal.style.display = 'flex';
-      
+
       // 强制浏览器重绘 (Reflow) 以确保过渡动画生效
       modal.offsetHeight;
-      
+
       // 设置不透明，触发 CSS transition
       modal.style.opacity = '1';
-      
+
       // 如果有内容区域，也可以添加缩放动画
       const content = modal.querySelector('.modal-content') as HTMLElement;
       if (content) {
@@ -1175,7 +1176,7 @@ function setupGlobalModalFunctions(app: LovelyResApp) {
     if (modal) {
       // 触发淡出动画
       modal.style.opacity = '0';
-      
+
       const content = modal.querySelector('.modal-content') as HTMLElement;
       if (content) {
         content.style.transform = 'scale(0.98)';
@@ -1184,7 +1185,7 @@ function setupGlobalModalFunctions(app: LovelyResApp) {
       // 等待动画结束后隐藏/移除
       setTimeout(() => {
         if (modal && modal.parentNode) {
-            modal.parentNode.removeChild(modal);
+          modal.parentNode.removeChild(modal);
         }
       }, 200); // 200ms 对应 CSS 中的 transition 时间
     }
@@ -1402,7 +1403,7 @@ function setupGlobalModalFunctions(app: LovelyResApp) {
         if (app) {
           dropdown.innerHTML = app.getStateManager().getUIRenderer().renderConnectionDropdownContent();
         }
-        
+
         // 显示下拉菜单 (位置由CSS控制)
         dropdown.style.display = 'block';
       }
@@ -2067,7 +2068,7 @@ function setupGlobalModalFunctions(app: LovelyResApp) {
       if (sshManager) {
         await sshManager.disconnect(serverId);
         console.log('✅ 服务器已断开连接');
-        
+
         // 更新UI
         (window as any).refreshServerList();
         (window as any).refreshSidebar();
@@ -2112,7 +2113,7 @@ function setupGlobalModalFunctions(app: LovelyResApp) {
     try {
       console.log('🔄 测试连接中...');
       console.log('连接参数:', { host, port, username, authType, hasPassword: !!password, hasKeyPath: !!keyPath });
-      
+
       const result = await (window as any).__TAURI__.core.invoke('ssh_test_connection', {
         host,
         port,
@@ -2125,7 +2126,7 @@ function setupGlobalModalFunctions(app: LovelyResApp) {
       });
 
       console.log('测试连接结果:', result);
-      
+
       if (result) {
         (window as any).showNotification('✅ 连接测试成功', 'success');
       } else {
@@ -2150,7 +2151,7 @@ function setupGlobalModalFunctions(app: LovelyResApp) {
         (window as any).showNotification('文件选择功能不可用', 'error');
         return;
       }
-      
+
       const selected = await (window as any).__TAURI__.dialog.open({
         multiple: false,
         filters: [{
@@ -2164,7 +2165,7 @@ function setupGlobalModalFunctions(app: LovelyResApp) {
         if (input) {
           input.value = selected as string;
         }
-        
+
         // 如果是在额外账号中
         // 这里简化处理，目前只支持主表单的文件选择
       }
@@ -2609,7 +2610,7 @@ function setupGlobalModalFunctions(app: LovelyResApp) {
   // 刷新所有系统信息
   (window as any).refreshAllSystemInfo = async () => {
     console.log('🔄 开始刷新所有系统信息...');
-    
+
     try {
       // 显示加载状态
       const content = document.getElementById('system-info-content');
@@ -2643,7 +2644,7 @@ function setupGlobalModalFunctions(app: LovelyResApp) {
 
       // 清除缓存以确保获取最新数据
       app.systemInfoManager.clearCache();
-      
+
       // 重新获取所有系统信息
       const detailedInfo = await app.systemInfoManager.getDetailedSystemInfo();
       console.log('✅ 系统信息刷新完成');
@@ -2651,7 +2652,7 @@ function setupGlobalModalFunctions(app: LovelyResApp) {
       // 更新当前激活的标签页
       const activeTab = document.querySelector('.tab-btn.active');
       const currentTabId = activeTab ? activeTab.getAttribute('data-tab') : 'processes';
-      
+
       const updateFunctions = {
         processes: 'updateProcessesTable',
         network: 'updateNetworkTable',
@@ -2661,7 +2662,7 @@ function setupGlobalModalFunctions(app: LovelyResApp) {
         cron: 'updateCronTable',
         firewall: 'updateFirewallTable'
       };
-      
+
       if (updateFunctions[currentTabId as keyof typeof updateFunctions]) {
         const updateFunc = (window as any)[updateFunctions[currentTabId as keyof typeof updateFunctions]];
         if (typeof updateFunc === 'function') {
@@ -2686,7 +2687,7 @@ function setupGlobalModalFunctions(app: LovelyResApp) {
         `;
         notification.textContent = '✅ 系统信息已刷新';
         document.body.appendChild(notification);
-        
+
         setTimeout(() => {
           if (notification.parentNode) {
             document.body.removeChild(notification);

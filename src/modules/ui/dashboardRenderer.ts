@@ -8,7 +8,6 @@ import { sshConnectionManager } from '../remote/sshConnectionManager';
 import {
   Computer,
   TrendTwo,
-  Earth,
   LinkOne,
   SettingTwo,
   Peoples,
@@ -85,45 +84,16 @@ export class DashboardRenderer {
         <!-- Bento Grid Layout -->
         <div class="dashboard-grid-bento">
           
-          <!-- Row 1: Real-time Trends -->
-          <div class="dashboard-card modern-card span-2 chart-cpu-memory">
-            <div class="card-header">
-              <div class="card-icon blue">
-                ${TrendTwo({ theme: 'filled', size: '18', fill: 'currentColor' })}
-              </div>
-              <h3>CPU & 内存趋势</h3>
-            </div>
-            <div class="card-content chart-container">
-              <div id="chart-cpu-memory"></div>
-            </div>
-          </div>
-
-          <div class="dashboard-card modern-card chart-network">
-             <div class="card-header">
-              <div class="card-icon green">
-                ${Earth({ theme: 'filled', size: '18', fill: 'currentColor' })}
-              </div>
-              <h3>网络流量实时监控</h3>
-            </div>
-            <div class="card-content chart-container">
-              <div id="chart-network"></div>
-            </div>
-          </div>
-
-          <!-- Row 2: Distribution & Details -->
-          <div class="dashboard-card modern-card chart-disk">
+          <!-- Row 1: Disk Space Detailed & Load -->
+          <div class="dashboard-card modern-card chart-disk" style="height: auto; min-height: 240px;">
             <div class="card-header">
               <div class="card-icon purple">
                 ${Computer({ theme: 'filled', size: '18', fill: 'currentColor' })}
               </div>
               <h3>磁盘空间分布</h3>
             </div>
-            <div class="card-content chart-container">
-              <div id="chart-disk"></div>
-              <div class="disk-info-text">
-                 <span class="disk-percentage">${systemInfo.diskUsage.percentage}</span>
-                 <span class="disk-label">已使用</span>
-              </div>
+            <div class="card-content" style="padding: 20px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; max-height: 400px;">
+              ${this.renderPartitionList(systemInfo)}
             </div>
           </div>
 
@@ -132,10 +102,23 @@ export class DashboardRenderer {
               <div class="card-icon orange">
                 ${SettingTwo({ theme: 'filled', size: '18', fill: 'currentColor' })}
               </div>
-              <h3>系统负载 (Load Average)</h3>
+              <h3>系统负载</h3>
             </div>
             <div class="card-content chart-container">
               <div id="chart-load"></div>
+            </div>
+          </div>
+
+          <!-- Row 2: Top Processes & Overview -->
+          <div class="dashboard-card modern-card top-processes-card">
+             <div class="card-header">
+              <div class="card-icon blue">
+                ${TrendTwo({ theme: 'filled', size: '18', fill: 'currentColor' })}
+              </div>
+              <h3>实时 Top 进程 (CPU)</h3>
+            </div>
+            <div class="card-content table-container" style="overflow-x: auto;">
+              ${this.renderTopProcessesTable(systemInfo)}
             </div>
           </div>
 
@@ -181,6 +164,45 @@ export class DashboardRenderer {
   }
 
   /**
+   * 渲染 Top 进程表
+   */
+  private renderTopProcessesTable(systemInfo: SystemInfo): string {
+    if (!systemInfo.detailedInfo || !systemInfo.detailedInfo.processes || systemInfo.detailedInfo.processes.length === 0) {
+      return '<div class="no-data" style="padding: 20px; text-align: center; color: var(--text-secondary);">暂无进程数据</div>';
+    }
+
+    // Sort by CPU usage (descending)
+    const processes = [...systemInfo.detailedInfo.processes]
+      .sort((a, b) => parseFloat(b.cpu) - parseFloat(a.cpu))
+      .slice(0, 6); // Top 6
+
+    return `
+      <table class="modern-table" style="width: 100%; border-collapse: collapse; font-size: 0.9em;">
+        <thead>
+          <tr style="border-bottom: 1px solid var(--border-color); text-align: left;">
+            <th style="padding: 8px;">PID</th>
+            <th style="padding: 8px;">用户</th>
+            <th style="padding: 8px;">CPU</th>
+            <th style="padding: 8px;">内存</th>
+            <th style="padding: 8px;">命令</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${processes.map(p => `
+            <tr style="border-bottom: 1px solid var(--border-color-light);">
+              <td style="padding: 8px;">${p.pid}</td>
+              <td style="padding: 8px;">${p.user}</td>
+              <td style="padding: 8px; color: var(--warning-color);">${p.cpu}%</td>
+              <td style="padding: 8px;">${p.memory}%</td>
+              <td style="padding: 8px;" title="${p.command}">${this.truncateText(p.command, 25)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  /**
    * Initialize ApexCharts
    */
   public initCharts() {
@@ -200,9 +222,6 @@ export class DashboardRenderer {
     });
     this.charts.clear();
 
-    this.initCpuMemoryChart();
-    this.initNetworkChart();
-    this.initDiskChart();
     this.initLoadChart();
   }
 
@@ -214,138 +233,6 @@ export class DashboardRenderer {
       gridColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
       dataLabelColor: isDark ? '#fff' : '#1e293b'
     };
-  }
-
-  private initCpuMemoryChart() {
-    const themeOpts = this.getThemeOptions();
-    const options = {
-      series: [{
-        name: 'CPU使用率',
-        data: this.history.cpu
-      }, {
-        name: '内存使用率',
-        data: this.history.memory
-      }],
-      chart: {
-        type: 'area',
-        height: '100%',
-        fontFamily: 'inherit',
-        background: 'transparent',
-        toolbar: { show: false },
-        animations: { enabled: true, easing: 'linear', dynamicAnimation: { speed: 1000 } }
-      },
-      colors: ['#F59E0B', '#3B82F6'],
-      dataLabels: { enabled: false },
-      stroke: { curve: 'smooth', width: 2 },
-      fill: { type: 'gradient', gradient: { opacityFrom: 0.5, opacityTo: 0.1 } },
-      xaxis: {
-        type: 'datetime',
-        labels: { show: false },
-        tooltip: { enabled: false },
-        axisBorder: { show: false },
-        axisTicks: { show: false }
-      },
-      yaxis: {
-        max: 100,
-        min: 0,
-        labels: { style: { colors: themeOpts.textColor } }
-      },
-      grid: {
-        borderColor: themeOpts.gridColor,
-        strokeDashArray: 4,
-        padding: { top: 0, right: 0, bottom: 0, left: 10 }
-      },
-      theme: { mode: themeOpts.mode },
-      legend: { position: 'top', horizontalAlign: 'right' }
-    };
-
-    const chart = new ApexCharts(document.querySelector("#chart-cpu-memory"), options);
-    chart.render();
-    this.charts.set('cpu-memory', chart);
-  }
-
-  private initNetworkChart() {
-    const themeOpts = this.getThemeOptions();
-    const options = {
-      series: [{
-        name: '接收 (RX)',
-        data: this.history.network.rx
-      }, {
-        name: '发送 (TX)',
-        data: this.history.network.tx
-      }],
-      chart: {
-        type: 'line',
-        height: '100%',
-        fontFamily: 'inherit',
-        background: 'transparent',
-        toolbar: { show: false },
-        animations: { enabled: true, easing: 'linear', dynamicAnimation: { speed: 1000 } }
-      },
-      colors: ['#10B981', '#8B5CF6'],
-      dataLabels: { enabled: false },
-      stroke: { curve: 'monotoneCubic', width: 2 },
-      xaxis: {
-        type: 'datetime',
-        labels: { show: false },
-        tooltip: { enabled: false },
-        axisBorder: { show: false },
-        axisTicks: { show: false }
-      },
-      yaxis: {
-        labels: {
-          style: { colors: themeOpts.textColor },
-          formatter: (value: number) => {
-            if (value >= 1024) {
-              return (value / 1024).toFixed(1) + ' MB/s';
-            }
-            return value.toFixed(1) + ' KB/s';
-          }
-        }
-      },
-      grid: {
-        borderColor: themeOpts.gridColor,
-        strokeDashArray: 4,
-        padding: { top: 0, right: 0, bottom: 0, left: 10 }
-      },
-      theme: { mode: themeOpts.mode },
-      legend: { position: 'top', horizontalAlign: 'right' }
-    };
-
-    const chart = new ApexCharts(document.querySelector("#chart-network"), options);
-    chart.render();
-    this.charts.set('network', chart);
-  }
-
-  private initDiskChart() {
-    const systemInfo = (this as any).currentSystemInfo;
-    if (!systemInfo) return;
-
-    const themeOpts = this.getThemeOptions();
-    const diskUsed = parseFloat(systemInfo.diskUsage.percentage.replace('%', ''));
-    const diskFree = 100 - diskUsed;
-
-    const options = {
-      series: [diskUsed, diskFree],
-      labels: ['已用', '可用'],
-      chart: { type: 'donut', height: '100%', fontFamily: 'inherit', background: 'transparent' },
-      colors: ['#EF4444', '#10B981'],
-      plotOptions: {
-        pie: {
-          donut: {
-            size: '75%',
-            labels: { show: false }
-          }
-        }
-      },
-      dataLabels: { enabled: false },
-      legend: { position: 'bottom', fontSize: '12px', markers: { width: 8, height: 8 } },
-      theme: { mode: themeOpts.mode },
-      stroke: { show: false }
-    };
-    const chart = new ApexCharts(document.querySelector("#chart-disk"), options);
-    chart.render();
-    this.charts.set('disk', chart);
   }
 
   private initLoadChart() {
@@ -556,6 +443,66 @@ export class DashboardRenderer {
     const value = parseFloat(memStr.replace(/[^\d.]/g, ''));
     if (memStr.includes('GB')) return value * 1024;
     return value;
+  }
+
+  /**
+   * 渲染分区列表
+   */
+  private renderPartitionList(systemInfo: SystemInfo): string {
+    if (!systemInfo.partitions || systemInfo.partitions.length === 0) {
+      // Fallback if no partitions data (old backend or error)
+      return this.renderLegacyDiskInfo(systemInfo);
+    }
+
+    return systemInfo.partitions.map(part => {
+      const percentage = parseFloat(part.percentage.replace('%', ''));
+      
+      // Calculate color code for inline style if needed, or use CSS variables
+      const colorVar = percentage > 90 ? 'var(--error-color)' : (percentage > 75 ? 'var(--warning-color)' : 'var(--primary-color)');
+
+      return `
+        <div class="partition-item" style="display: flex; flex-direction: column; gap: 6px;">
+          <div class="partition-header" style="display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
+            <div class="partition-info" style="display: flex; align-items: center; gap: 8px;">
+              <span class="partition-mount" style="font-weight: 600; color: var(--text-primary);">${part.mountpoint}</span>
+              <span class="partition-fs" style="font-size: 11px; color: var(--text-secondary); background: var(--bg-tertiary); padding: 2px 6px; border-radius: 4px;">${part.filesystem}</span>
+            </div>
+            <div class="partition-stats" style="color: var(--text-secondary);">
+              <span style="color: var(--text-primary); font-weight: 500;">${part.used}</span> / ${part.size}
+            </div>
+          </div>
+          <div class="partition-bar-bg" style="width: 100%; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden;">
+            <div class="partition-bar-fill" style="width: ${part.percentage}; height: 100%; background: ${colorVar}; border-radius: 4px; transition: width 0.5s ease;"></div>
+          </div>
+          <div class="partition-footer" style="display: flex; justify-content: flex-end; font-size: 11px; color: var(--text-secondary);">
+            <span>可用: <span style="color: var(--success-color);">${part.available}</span></span>
+            <span style="margin: 0 4px;">•</span>
+            <span>使用率: <span style="color: ${colorVar}; font-weight: 600;">${part.percentage}</span></span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  private renderLegacyDiskInfo(systemInfo: SystemInfo): string {
+    return `
+      <div class="disk-detail-item" style="display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px solid var(--border-color); padding-bottom: 4px;">
+        <span class="label" style="color: var(--text-secondary);">总空间</span>
+        <span class="value" style="font-weight: 600;">${systemInfo.diskUsage.total}</span>
+      </div>
+      <div class="disk-detail-item" style="display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px solid var(--border-color); padding-bottom: 4px;">
+        <span class="label" style="color: var(--text-secondary);">已使用</span>
+        <span class="value" style="font-weight: 600; color: var(--error-color);">${systemInfo.diskUsage.used}</span>
+      </div>
+      <div class="disk-detail-item" style="display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px solid var(--border-color); padding-bottom: 4px;">
+        <span class="label" style="color: var(--text-secondary);">可用空间</span>
+        <span class="value" style="font-weight: 600; color: var(--success-color);">${systemInfo.diskUsage.available}</span>
+      </div>
+      <div class="disk-detail-item" style="display: flex; justify-content: space-between;">
+        <span class="label" style="color: var(--text-secondary);">使用率</span>
+        <span class="value highlight" style="font-weight: bold; color: var(--primary-color);">${systemInfo.diskUsage.percentage}</span>
+      </div>
+    `;
   }
 }
 

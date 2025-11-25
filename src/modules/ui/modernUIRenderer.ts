@@ -502,8 +502,48 @@ export class ModernUIRenderer {
   renderConnectionDropdownContent(): string {
     const sshManager = (window as any).app?.sshManager;
     const connections = sshManager ? sshManager.getConnections() : [];
+    // 优先使用 getActiveConnection，如果不行则遍历 connections 找一个已连接的
+    const activeConnection = (sshManager ? sshManager.getActiveConnection() : null) 
+        || connections.find((c: any) => c.isConnected);
 
     let menuItems = '';
+
+    // 如果已连接，显示断开连接选项
+    if (activeConnection) {
+      const disconnectIcon = LinkInterrupt({ theme: 'outline', size: '16', fill: 'currentColor' });
+      menuItems += `
+        <div class="dropdown-item" onclick="window.disconnectServer('${activeConnection.id}'); window.hideConnectionDropdown();" style="
+          padding: 10px 12px;
+          cursor: pointer;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 13px;
+          color: var(--error-color);
+          font-weight: 500;
+          background: rgba(239, 68, 68, 0.05);
+          margin-bottom: 8px;
+          border: 1px dashed var(--error-color);
+          transition: all 0.2s;
+        " onmouseover="this.style.background='rgba(239, 68, 68, 0.1)'; this.style.transform='translateY(-1px)';" 
+           onmouseout="this.style.background='rgba(239, 68, 68, 0.05)'; this.style.transform='translateY(0)';">
+          <div style="
+              width: 24px; 
+              height: 24px; 
+              border-radius: 6px; 
+              background: var(--error-color); 
+              color: white; 
+              display: flex; 
+              align-items: center; 
+              justify-content: center;
+          ">
+              ${disconnectIcon}
+          </div>
+          <span>断开当前连接</span>
+        </div>
+      `;
+    }
 
     // 添加新连接选项 - 放在顶部作为主要操作
     menuItems += `

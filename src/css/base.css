@@ -423,14 +423,14 @@ body {
 
 /* 侧边栏 */
 .modern-sidebar {
-  width: 220px;
+  width: 300px;
   height: 100%;
   background: var(--bg-secondary);
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
-  padding: 16px;
-  gap: 16px;
+  padding: 20px;
+  gap: 20px;
   backdrop-filter: blur(10px);
 }
 
@@ -547,9 +547,9 @@ body {
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 16px;
-  border-radius: 8px;
+  gap: 14px;
+  padding: 14px 20px;
+  border-radius: 10px;
   cursor: pointer;
   color: var(--text-secondary);
   background: transparent;
@@ -574,8 +574,8 @@ body {
   left: 0;
   top: 50%;
   transform: translateY(-50%);
-  width: 3px;
-  height: 16px;
+  width: 4px;
+  height: 20px;
   background: var(--primary-color);
   border-radius: 0 2px 2px 0;
 }
@@ -584,11 +584,11 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
+  width: 24px;
 }
 
 .nav-item-text {
-  font-size: 13px;
+  font-size: 16px;
 }
 
 
@@ -2321,8 +2321,8 @@ body {
 /* Bento Grid Dashboard Styles */
 .dashboard-grid-bento {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  grid-template-rows: repeat(3, minmax(180px, auto));
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: auto;
   gap: 20px;
   padding: 20px;
   height: calc(100vh - 140px);
@@ -2408,12 +2408,12 @@ body {
 
 /* Specific Card Layouts */
 .chart-cpu-memory {
-  grid-column: span 2;
-  grid-row: span 2;
+  grid-column: span 1;
+  grid-row: span 1;
 }
 
 .chart-network {
-  grid-column: span 2;
+  grid-column: span 1;
   grid-row: span 1;
 }
 
@@ -2511,7 +2511,7 @@ body {
 
   .chart-cpu-memory,
   .chart-network {
-    grid-column: span 2;
+    grid-column: span 1;
   }
 }
 

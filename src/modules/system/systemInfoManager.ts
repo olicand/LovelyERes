@@ -21,6 +21,14 @@ export interface SystemInfo {
     available: string;
     percentage: string;
   };
+  partitions: Array<{
+    filesystem: string;
+    size: string;
+    used: string;
+    available: string;
+    percentage: string;
+    mountpoint: string;
+  }>;
   cpuInfo: {
     model: string;
     cores: number;
@@ -145,7 +153,7 @@ export class SystemInfoManager {
         this.executeCommand('uptime'),
         this.executeCommand('cat /proc/loadavg'),
         this.executeCommand('cat /proc/meminfo'),
-        this.executeCommand('df -h /'),
+        this.executeCommand('df -hP'), // 获取所有分区信息
         this.executeCommand('cat /proc/cpuinfo | grep "model name" | head -1 && nproc'),
         this.executeCommand('top -bn2 -d0.5 | grep "Cpu(s)" | tail -1 | awk \'{print 100-$8"%"}\' || echo "0%"'),
         this.getNetworkConnectionCount(),
@@ -193,6 +201,11 @@ export class SystemInfoManager {
         cronJobs: this.parseCronJobs(cronJobsData),
         firewallRules: this.parseFirewallRules(firewallRulesData)
       };
+
+      // 将详细信息附加到系统信息对象中
+      if (this.systemInfo) {
+        this.systemInfo.detailedInfo = this.detailedInfo;
+      }
 
       console.log('✅ 系统信息和详细信息获取完成');
       return this.systemInfo;
@@ -242,13 +255,67 @@ export class SystemInfoManager {
     const memUsed = memTotal - memFree;
 
     // 解析磁盘信息
-    const diskLines = rawData.diskInfo.split('\n');
-    const diskDataLine = diskLines[1] || diskLines[0]; // 跳过标题行，取第二行数据
-    const diskParts = diskDataLine.split(/\s+/);
-    const diskTotal = diskParts[1] || '0';
-    const diskUsed = diskParts[2] || '0';
-    const diskAvailable = diskParts[3] || '0';
-    const diskPercentage = diskParts[4] || '0%';
+    const diskLines = rawData.diskInfo.trim().split('\n');
+    const partitions = [];
+    let rootDisk = { total: '0', used: '0', available: '0', percentage: '0%' };
+
+    // 跳过标题行 (Filesystem Size Used Avail Use% Mounted on)
+    for (let i = 1; i < diskLines.length; i++) {
+      const line = diskLines[i].trim();
+      if (!line) continue;
+      
+      const parts = line.split(/\s+/);
+      if (parts.length < 6) continue;
+
+      const filesystem = parts[0];
+      const size = parts[1];
+      const used = parts[2];
+      const available = parts[3];
+      const percentage = parts[4];
+      const mountpoint = parts.slice(5).join(' '); // 处理挂载点可能有空格的情况
+
+      // 过滤掉非物理文件系统
+      if (filesystem.includes('tmpfs') || 
+          filesystem.includes('overlay') || 
+          filesystem.includes('loop') || 
+          filesystem.includes('cdrom') ||
+          filesystem.includes('udev') ||
+          mountpoint.startsWith('/boot') || // 可选：隐藏boot分区
+          mountpoint.startsWith('/snap')) {
+        continue;
+      }
+
+      const partition = {
+        filesystem,
+        size,
+        used,
+        available,
+        percentage,
+        mountpoint
+      };
+
+      partitions.push(partition);
+
+      // 查找根分区作为主要磁盘信息
+      if (mountpoint === '/') {
+        rootDisk = {
+          total: size,
+          used: used,
+          available: available,
+          percentage: percentage
+        };
+      }
+    }
+
+    // 如果没有找到根分区，使用第一个分区作为默认值
+    if (rootDisk.total === '0' && partitions.length > 0) {
+      rootDisk = {
+        total: partitions[0].size,
+        used: partitions[0].used,
+        available: partitions[0].available,
+        percentage: partitions[0].percentage
+      };
+    }
 
     // 解析CPU信息
     const cpuLines = rawData.cpuInfo.split('\n');
@@ -280,11 +347,12 @@ export class SystemInfoManager {
         available: this.formatBytes(memAvailable * 1024)
       },
       diskUsage: {
-        total: diskTotal,
-        used: diskUsed,
-        available: diskAvailable,
-        percentage: diskPercentage
+        total: rootDisk.total,
+        used: rootDisk.used,
+        available: rootDisk.available,
+        percentage: rootDisk.percentage
       },
+      partitions: partitions,
       cpuInfo: {
         model: cpuModel,
         cores: cpuCores,
